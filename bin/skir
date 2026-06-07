@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+BIN="$ROOT_DIR/build/skir-ae"
+
+if [ ! -x "$BIN" ] || [ "$ROOT_DIR/aether/skir.ae" -nt "$BIN" ]; then
+  mkdir -p "$ROOT_DIR/build"
+  ae build "$ROOT_DIR/aether/skir.ae" -o "$BIN"
+fi
+
+exec "$BIN" "$@"

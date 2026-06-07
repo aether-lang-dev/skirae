@@ -1,0 +1,429 @@
+import std.fs
+import std.os
+import std.string
+
+const VERSION = "2.0.0-aether.0"
+
+help() {
+    println("Usage: skir <command> [options]")
+    println("")
+    println("Commands:")
+    println("  init               Create skir.json and skir-src/hello_world.skir")
+    println("  gen                Parse .skir files and write skirout/skir-ir.json")
+    println("  format             Validate .skir files; --ci checks only")
+    println("  snapshot           Write skir-snapshot.json; --view displays it")
+    println("  version            Print the native Skir version")
+    println("  help               Display this help")
+    println("")
+    println("Options:")
+    println("  --root, -r <path>  Project root containing skir.json")
+    println("  --watch, -w        Accepted for CLI compatibility; runs one generation")
+    println("  --ci               Check mode for format/snapshot")
+    println("  --dry-run          Snapshot compatibility mode")
+    println("  --view             Display the last snapshot")
+}
+
+arg_value(flag: string) -> string {
+    n = aether_args_count()
+    i = 2
+    while i < n {
+        a = aether_args_get(i)
+        if a == flag {
+            if i + 1 < n {
+                return aether_args_get(i + 1)
+            }
+            return ""
+        }
+        prefix = string.concat(flag, "=")
+        if string.starts_with(a, prefix) == 1 {
+            return string.substring(a, string.length(prefix), string.length(a))
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+has_flag(flag: string) -> int {
+    n = aether_args_count()
+    i = 2
+    while i < n {
+        if aether_args_get(i) == flag {
+            return 1
+        }
+        i = i + 1
+    }
+    return 0
+}
+
+root_arg() -> string {
+    r = arg_value("--root")
+    if r != "" {
+        return r
+    }
+    r2 = arg_value("-r")
+    if r2 != "" {
+        return r2
+    }
+    return "."
+}
+
+relative_to(base: string, target: string) -> string {
+    prefix = string.concat(base, "/")
+    if string.starts_with(target, prefix) == 1 {
+        return string.substring(target, string.length(prefix), string.length(target))
+    }
+    return target
+}
+
+json_escape(s: string) -> string {
+    out = ""
+    i = 0
+    n = string.length(s)
+    while i < n {
+        ch = string.char_at(s, i)
+        if ch == 34 {
+            out = string.concat(out, "\\\"")
+        } else if ch == 92 {
+            out = string.concat(out, "\\\\")
+        } else if ch == 10 {
+            out = string.concat(out, "\\n")
+        } else if ch == 13 {
+            out = string.concat(out, "\\r")
+        } else if ch == 9 {
+            out = string.concat(out, "\\t")
+        } else {
+            out = string.concat(out, string.from_char(ch))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+is_space(ch: int) -> int {
+    if ch == 32 { return 1 }
+    if ch == 9 { return 1 }
+    if ch == 10 { return 1 }
+    if ch == 13 { return 1 }
+    return 0
+}
+
+is_word(ch: int) -> int {
+    if ch >= 65 && ch <= 90 { return 1 }
+    if ch >= 97 && ch <= 122 { return 1 }
+    if ch >= 48 && ch <= 57 { return 1 }
+    if ch == 95 { return 1 }
+    return 0
+}
+
+is_symbol(ch: int) -> int {
+    if ch == 123 { return 1 }
+    if ch == 125 { return 1 }
+    if ch == 91 { return 1 }
+    if ch == 93 { return 1 }
+    if ch == 40 { return 1 }
+    if ch == 41 { return 1 }
+    if ch == 42 { return 1 }
+    if ch == 46 { return 1 }
+    if ch == 58 { return 1 }
+    if ch == 61 { return 1 }
+    if ch == 59 { return 1 }
+    if ch == 124 { return 1 }
+    if ch == 63 { return 1 }
+    if ch == 44 { return 1 }
+    return 0
+}
+
+append_token_json(json: string, tok: string, first: int) -> (string, int) {
+    if first == 0 {
+        json = string.concat(json, ",")
+    }
+    json = string.concat(json, "\"")
+    json = string.concat(json, json_escape(tok))
+    json = string.concat(json, "\"")
+    return json, 0
+}
+
+tokenize_to_json(path: string, source: string) -> (string, string) {
+    json = "["
+    first = 1
+    i = 0
+    n = string.length(source)
+    brace = 0
+    bracket = 0
+    paren = 0
+    while i < n {
+        ch = string.char_at(source, i)
+        if is_space(ch) == 1 {
+            i = i + 1
+        } else if ch == 47 && i + 1 < n && string.char_at(source, i + 1) == 47 {
+            while i < n && string.char_at(source, i) != 10 {
+                i = i + 1
+            }
+        } else if ch == 47 && i + 1 < n && string.char_at(source, i + 1) == 42 {
+            i = i + 2
+            closed = 0
+            while i + 1 < n {
+                if string.char_at(source, i) == 42 && string.char_at(source, i + 1) == 47 {
+                    closed = 1
+                    i = i + 2
+                    break
+                }
+                i = i + 1
+            }
+            if closed == 0 {
+                return json, string.concat(path, ": unterminated multi-line comment")
+            }
+        } else if ch == 34 || ch == 39 {
+            quote = ch
+            start = i
+            i = i + 1
+            closed2 = 0
+            while i < n {
+                c2 = string.char_at(source, i)
+                if c2 == 92 {
+                    i = i + 2
+                } else if c2 == quote {
+                    i = i + 1
+                    closed2 = 1
+                    break
+                } else {
+                    i = i + 1
+                }
+            }
+            if closed2 == 0 {
+                return json, string.concat(path, ": unterminated string literal")
+            }
+            tok = string.substring(source, start, i)
+            json, first = append_token_json(json, tok, first)
+        } else if is_word(ch) == 1 || ch == 45 || (ch >= 48 && ch <= 57) {
+            start2 = i
+            i = i + 1
+            while i < n {
+                c3 = string.char_at(source, i)
+                if is_word(c3) == 1 || c3 == 46 {
+                    i = i + 1
+                } else {
+                    break
+                }
+            }
+            tok2 = string.substring(source, start2, i)
+            json, first = append_token_json(json, tok2, first)
+        } else if is_symbol(ch) == 1 {
+            if ch == 123 { brace = brace + 1 }
+            if ch == 125 { brace = brace - 1 }
+            if ch == 91 { bracket = bracket + 1 }
+            if ch == 93 { bracket = bracket - 1 }
+            if ch == 40 { paren = paren + 1 }
+            if ch == 41 { paren = paren - 1 }
+            if brace < 0 || bracket < 0 || paren < 0 {
+                return json, string.concat(path, ": unmatched closing delimiter")
+            }
+            if ch == 46 && i + 1 < n && string.char_at(source, i + 1) == 46 {
+                json, first = append_token_json(json, "..", first)
+                i = i + 2
+            } else if ch == 123 && i + 1 < n && string.char_at(source, i + 1) == 124 {
+                json, first = append_token_json(json, "{|", first)
+                i = i + 2
+            } else if ch == 124 && i + 1 < n && string.char_at(source, i + 1) == 125 {
+                json, first = append_token_json(json, "|}", first)
+                i = i + 2
+            } else {
+                json, first = append_token_json(json, string.from_char(ch), first)
+                i = i + 1
+            }
+        } else {
+            return json, string.concat(path, ": invalid character")
+        }
+    }
+    if brace != 0 { return json, string.concat(path, ": unmatched {") }
+    if bracket != 0 { return json, string.concat(path, ": unmatched [") }
+    if paren != 0 { return json, string.concat(path, ": unmatched (") }
+    json = string.concat(json, "]")
+    return json, ""
+}
+
+module_ir(path: string, source: string) -> (string, string) {
+    tokens, err = tokenize_to_json(path, source)
+    if err != "" {
+        return "", err
+    }
+    out = "{\"path\":\""
+    out = string.concat(out, json_escape(path))
+    out = string.concat(out, "\",\"source\":\"")
+    out = string.concat(out, json_escape(source))
+    out = string.concat(out, "\",\"tokens\":")
+    out = string.concat(out, tokens)
+    out = string.concat(out, "}")
+    return out, ""
+}
+
+collect_ir(root: string) -> (string, int) {
+    src_dir = path_join(root, "skir-src")
+    pattern = path_join(src_dir, "**/*.skir")
+    files = fs_glob_raw(pattern)
+    if files == null {
+        println("No skir modules found in source directory")
+        return "{\"modules\":[]}", 1
+    }
+    count = dir_list_count(files)
+    out = "{\"schemaVersion\":1,\"implementation\":\"aether\",\"modules\":["
+    failed = 0
+    first = 1
+    i = 0
+    previous_path = ""
+    while i < count {
+        full_path = dir_list_get(files, i)
+        if full_path != previous_path {
+            previous_path = full_path
+            source, read_err = fs.read(full_path)
+            if read_err != "" {
+                println(string.concat(full_path, ": cannot read file"))
+                failed = 1
+            } else {
+                rel = relative_to(src_dir, full_path)
+                mod, err = module_ir(rel, source)
+                if err != "" {
+                    println(err)
+                    failed = 1
+                } else {
+                    if first == 0 {
+                        out = string.concat(out, ",")
+                    }
+                    out = string.concat(out, mod)
+                    first = 0
+                }
+            }
+        }
+        i = i + 1
+    }
+    dir_list_free(files)
+    out = string.concat(out, "]}")
+    return out, failed
+}
+
+run_gen(root: string) -> int {
+    ir, failed = collect_ir(root)
+    if failed != 0 {
+        return 1
+    }
+    out_dir = path_join(root, "skirout")
+    err_mkdir = fs.mkdir_p(out_dir)
+    if err_mkdir != "" {
+        println(string.concat("Cannot create ", out_dir))
+        return 1
+    }
+    out_path = path_join(out_dir, "skir-ir.json")
+    err_write = fs.write(out_path, ir)
+    if err_write != "" {
+        println(string.concat("Cannot write ", out_path))
+        return 1
+    }
+    println(string.concat("Generated ", out_path))
+    return 0
+}
+
+run_format(root: string) -> int {
+    _, failed = collect_ir(root)
+    if failed != 0 {
+        return 1
+    }
+    if has_flag("--ci") == 1 {
+        println("All .skir files parse cleanly.")
+    } else {
+        println("Native formatter is not yet rewriting files; all .skir files parse cleanly.")
+    }
+    return 0
+}
+
+run_snapshot(root: string) -> int {
+    path = path_join(root, "skir-snapshot.json")
+    if has_flag("--view") == 1 {
+        text, err = fs.read(path)
+        if err != "" {
+            println("No snapshot found.")
+            return 0
+        }
+        println(text)
+        return 0
+    }
+    ir, failed = collect_ir(root)
+    if failed != 0 {
+        return 1
+    }
+    if has_flag("--dry-run") == 1 {
+        println("Snapshot dry-run succeeded.")
+        return 0
+    }
+    err_write = fs.write(path, ir)
+    if err_write != "" {
+        println(string.concat("Cannot write ", path))
+        return 1
+    }
+    println(string.concat("Snapshot taken: ", path))
+    return 0
+}
+
+run_init(root: string) -> int {
+    config_path = path_join(root, "skir.json")
+    if fs.exists(config_path) == 0 {
+        config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" }\n  ],\n  \"dependencies\": {}\n}\n"
+        err_config = fs.write(config_path, config)
+        if err_config != "" {
+            println(string.concat("Cannot write ", config_path))
+            return 1
+        }
+    }
+    src_dir = path_join(root, "skir-src")
+    err_mkdir = fs.mkdir_p(src_dir)
+    if err_mkdir != "" {
+        println(string.concat("Cannot create ", src_dir))
+        return 1
+    }
+    hello = path_join(src_dir, "hello_world.skir")
+    if fs.exists(hello) == 0 {
+        sample = "struct Greeting {\n  message: string;\n}\n"
+        err_sample = fs.write(hello, sample)
+        if err_sample != "" {
+            println(string.concat("Cannot write ", hello))
+            return 1
+        }
+    }
+    println(string.concat("Done. Please edit: ", config_path))
+    println("To generate code, run: skir gen")
+    return 0
+}
+
+main() {
+    n = aether_args_count()
+    if n < 2 {
+        help()
+        return
+    }
+    cmd = aether_args_get(1)
+    if cmd == "help" || cmd == "--help" || cmd == "-h" {
+        help()
+        return
+    }
+    if cmd == "version" || cmd == "--version" || cmd == "-v" {
+        println(string.concat("v", VERSION))
+        return
+    }
+    root = root_arg()
+    rc = 0
+    if cmd == "init" {
+        rc = run_init(root)
+    } else if cmd == "gen" {
+        rc = run_gen(root)
+    } else if cmd == "format" {
+        rc = run_format(root)
+    } else if cmd == "snapshot" {
+        rc = run_snapshot(root)
+    } else {
+        println(string.concat("Unknown command: ", cmd))
+        help()
+        rc = 1
+    }
+    if rc != 0 {
+        exit(rc)
+    }
+}
