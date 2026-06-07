@@ -1,4 +1,5 @@
 import std.fs
+import std.list
 import std.os
 import std.string
 
@@ -332,6 +333,26 @@ next_json_string_after(source: string, key: string, start: int) -> (string, int)
     return "", -1
 }
 
+run_generator_command(command: string, ir_path: string, out_dir: string) -> int {
+    argv = list.new()
+    list.add(argv, ir_path)
+    list.add(argv, out_dir)
+    stdout, exit_code, spawn_err = os.run_capture(command, argv, null)
+    list.free(argv)
+    if spawn_err != "" {
+        println(string.concat("Generator failed to start: ", spawn_err))
+        return 1
+    }
+    if stdout != "" {
+        println(stdout)
+    }
+    if exit_code != 0 {
+        println("Generator exited non-zero")
+        return 1
+    }
+    return 0
+}
+
 write_ir_outputs(root: string, ir: string) -> int {
     config_path = path_join(root, "skir.json")
     config, read_err = fs.read(config_path)
@@ -367,6 +388,19 @@ write_ir_outputs(root: string, ir: string) -> int {
             return 1
         }
         println(string.concat("Generated ", out_path))
+
+        next_out_dir = string.index_of_from(config, "\"outDir\"", next_pos)
+        command_pos = string.index_of_from(config, "\"command\"", pos)
+        if command_pos >= 0 && (next_out_dir < 0 || command_pos < next_out_dir) {
+            command, _ = next_json_string_after(config, "command", pos)
+            if command != "" {
+                rc = run_generator_command(command, out_path, out_path_dir)
+                if rc != 0 {
+                    return rc
+                }
+            }
+        }
+
         wrote = 1
         pos = next_pos
     }
