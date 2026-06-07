@@ -62,7 +62,7 @@ main() {
 
         aeocha.describe("CLI") {
             aeocha.it("prints native version") callback {
-                out, code, err = run_capture1("bin/skir", "version")
+                out, code, err = run_capture1("/home/paul/scm/skir/bin/skir", "version")
                 aeocha.expect_no_spawn_error(fw, err, "skir started")
                 aeocha.expect_exit(fw, code, 0, "version exits zero")
                 aeocha.expect_stdout_contains(fw, out, "v2.0.0-aether.0",
@@ -73,12 +73,22 @@ main() {
                 root = "/tmp/skir_aeocha_project"
                 mkdir_err = fs.mkdir_p(root)
                 aeocha.assert_str_eq(fw, mkdir_err, "", "temp root created")
-                out_init, code_init, err_init = run_capture2("bin/skir", "init", "--root=${root}")
+                out_init, code_init, err_init = run_capture2("/home/paul/scm/skir/bin/skir", "init", "--root=${root}")
                 aeocha.expect_no_spawn_error(fw, err_init, "init started")
                 aeocha.expect_exit(fw, code_init, 0, "init exits zero")
                 aeocha.expect_stdout_contains(fw, out_init, "skir.json", "init names config")
 
-                out_gen, code_gen, err_gen = run_capture2("bin/skir", "gen", "--root=${root}")
+                build_out, build_code, build_err = run_capture1("/home/paul/scm/aeb/aeb", ".build.ae")
+                aeocha.expect_no_spawn_error(fw, build_err, "aeb build started")
+                aeocha.expect_exit(fw, build_code, 0, "aeb build exits zero")
+                aeocha.expect_stdout_contains(fw, build_out, "generators/typescript", "build names generators")
+
+                config_path = "${root}/skir.json"
+                config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" },\n    {\n      \"kind\": \"external\",\n      \"outDir\": \"./bindings/typescript\",\n      \"command\": \"/home/paul/scm/skir/target/build/generators/typescript/bin/skir-typescript-gen\"\n    },\n    {\n      \"kind\": \"external\",\n      \"outDir\": \"./bindings/python\",\n      \"command\": \"/home/paul/scm/skir/target/build/generators/python/bin/skir-python-gen\"\n    }\n  ],\n  \"dependencies\": {}\n}\n"
+                write_err = fs.write(config_path, config)
+                aeocha.assert_str_eq(fw, write_err, "", "generator config written")
+
+                out_gen, code_gen, err_gen = run_capture2("/home/paul/scm/skir/bin/skir", "gen", "--root=${root}")
                 aeocha.expect_no_spawn_error(fw, err_gen, "gen started")
                 aeocha.expect_exit(fw, code_gen, 0, "gen exits zero")
                 aeocha.expect_stdout_contains(fw, out_gen, "skir-ir.json", "gen names IR")
@@ -90,6 +100,21 @@ main() {
                                        "IR marks Aether DSL implementation")
                 aeocha.assert_contains(fw, ir, "\"name\":\"Greeting\"",
                                        "IR includes initialized declaration")
+
+                bindings_ts_root = "${root}/bindings/typescript/index.ts"
+                bindings_ts_mod = "${root}/bindings/typescript/schema.ts"
+                bindings_py_root = "${root}/bindings/python/skir/__init__.py"
+                bindings_py_mod = "${root}/bindings/python/skir/schema.py"
+                aeocha.assert_true(fw, fs.exists(bindings_ts_root), "ts root generated")
+                aeocha.assert_true(fw, fs.exists(bindings_ts_mod), "ts module generated")
+                aeocha.assert_true(fw, fs.exists(bindings_py_root), "python root generated")
+                aeocha.assert_true(fw, fs.exists(bindings_py_mod), "python module generated")
+                ts_text, ts_err = fs.read(bindings_ts_mod)
+                aeocha.assert_str_eq(fw, ts_err, "", "TS output read")
+                aeocha.assert_contains(fw, ts_text, "export interface Greeting", "ts interface")
+                py_text, py_err = fs.read(bindings_py_mod)
+                aeocha.assert_str_eq(fw, py_err, "", "Python output read")
+                aeocha.assert_contains(fw, py_text, "class Greeting", "python dataclass")
             }
         }
     }

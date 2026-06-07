@@ -43,8 +43,13 @@ Generator config is JSON:
     { "kind": "ir", "outDir": "./skirout" },
     {
       "kind": "external",
-      "outDir": "./src/skirout",
-      "command": "./bin/skir-python-gen"
+      "outDir": "./bindings/typescript",
+      "command": "target/build/generators/typescript/bin/skir-typescript-gen"
+    },
+    {
+      "kind": "external",
+      "outDir": "./bindings/python",
+      "command": "target/build/generators/python/bin/skir-python-gen"
     }
   ]
 }
@@ -58,11 +63,13 @@ When `command` is present, Skir runs it as:
 
 That is the replacement for the old npm-module generator import path. Per-target
 generators can be native Aether binaries and do not need to link to or import
-the Skir core.
+the Skir core. In this repo, `aeb .build.ae` builds those binaries under
+`target/build/generators/...` before `skir gen` runs them.
 
-Language-specific package metadata belongs to the binding generator output. For
-example, a TypeScript generator may emit `package.json` under its own `outDir`,
-but Skir itself does not use npm as build or runtime infrastructure.
+Language-specific package metadata belongs to the binding generator output. The
+TypeScript generator emits `package.json`; the Python generator emits
+`pyproject.toml`. Skir itself does not use npm as build or runtime
+infrastructure.
 
 The port intentionally uses `skir.json` for the new config path. Aether does not
 currently ship a YAML parser, and reintroducing Node only to parse `skir.yml`

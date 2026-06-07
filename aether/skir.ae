@@ -2,6 +2,7 @@ import std.fs
 import std.list
 import std.os
 import std.string
+import std.json
 
 const VERSION = "2.0.0-aether.0"
 
@@ -95,11 +96,8 @@ run_schema_program(schema_path: string, out_path: string) -> int {
     sleep(100)
 
     argv2 = list.new()
-    list.add(argv2, "-c")
-    run_cmd = string.concat(bin_path, " ")
-    run_cmd = string.concat(run_cmd, out_path)
-    list.add(argv2, run_cmd)
-    run_out, run_code, run_err = os.run_capture("/bin/sh", argv2, null)
+    list.add(argv2, out_path)
+    run_out, run_code, run_err = os.run_capture(bin_path, argv2, null)
     list.free(argv2)
     if run_err != "" {
         println(string.concat("schema program failed to start: ", run_err))
@@ -120,11 +118,12 @@ collect_ir(root: string) -> (string, int) {
     files = fs_glob_raw(pattern)
     if files == null {
         println("No Aether schema programs found in source directory")
-        return "{\"modules\":[]}", 1
+        return "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[]}", 1
     }
     count = dir_list_count(files)
     failed = 0
-    out = ""
+    out = "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":["
+    first_module = 1
     i = 0
     previous_path = ""
     while i < count {
@@ -141,17 +140,49 @@ collect_ir(root: string) -> (string, int) {
                     println(string.concat("cannot read schema IR: ", tmp_ir))
                     failed = 1
                 } else {
-                    out = ir_text
-                    i = count
+                    parsed, parse_err = json.parse(ir_text)
+                    if parse_err != "" || parsed == null {
+                        println(string.concat("cannot parse schema IR: ", full_path))
+                        failed = 1
+                    } else {
+                        modules_v, mod_err = json.object_get(parsed, "modules")
+                        if mod_err != "" || modules_v == null {
+                            println(string.concat("schema IR missing modules: ", full_path))
+                            failed = 1
+                        } else {
+                            mod_count = json.array_size(modules_v)
+                            j = 0
+                            while j < mod_count {
+                                mod_v, mod_err2 = json.array_get(modules_v, j)
+                                if mod_err2 != "" {
+                                    println(string.concat("schema IR module read failed: ", full_path))
+                                    failed = 1
+                                    j = mod_count
+                                } else {
+                                    if first_module == 0 {
+                                        out = string.concat(out, ",")
+                                    }
+                                    mod_text, stringify_err = json.stringify(mod_v)
+                                    if stringify_err != "" {
+                                        println(string.concat("schema IR stringify failed: ", full_path))
+                                        failed = 1
+                                    } else {
+                                        out = string.concat(out, mod_text)
+                                        first_module = 0
+                                    }
+                                }
+                                j = j + 1
+                            }
+                            json.free(parsed)
+                        }
+                    }
                 }
             }
         }
         i = i + 1
     }
     dir_list_free(files)
-    if out == "" {
-        out = "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[]}"
-    }
+    out = string.concat(out, "]}")
     return out, failed
 }
 
@@ -190,6 +221,11 @@ run_generator_command(command: string, ir_path: string, out_dir: string) -> int 
     argv = list.new()
     list.add(argv, ir_path)
     list.add(argv, out_dir)
+    lang = "typescript"
+    if string.contains(command, "python") == 1 {
+        lang = "python"
+    }
+    list.add(argv, lang)
     stdout, exit_code, spawn_err = os.run_capture(command, argv, null)
     list.free(argv)
     if spawn_err != "" {

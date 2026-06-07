@@ -1,0 +1,704 @@
+import std.fs
+import std.json
+import std.list
+import std.os
+import std.string
+
+const JSON_NULL = 0
+const JSON_BOOL = 1
+const JSON_NUMBER = 2
+const JSON_STRING = 3
+const JSON_ARRAY = 4
+const JSON_OBJECT = 5
+
+fail(msg: string) {
+    println(msg)
+    exit(1)
+}
+
+escape(s: string) -> string {
+    out = ""
+    i = 0
+    n = string.length(s)
+    while i < n {
+        ch = string.char_at(s, i)
+        if ch == 34 {
+            out = string.concat(out, "\\\"")
+        } else if ch == 92 {
+            out = string.concat(out, "\\\\")
+        } else if ch == 10 {
+            out = string.concat(out, "\\n")
+        } else if ch == 13 {
+            out = string.concat(out, "\\r")
+        } else if ch == 9 {
+            out = string.concat(out, "\\t")
+        } else {
+            out = string.concat(out, string.from_char(ch))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+quote(s: string) -> string {
+    out = "\""
+    out = string.concat(out, escape(s))
+    out = string.concat(out, "\"")
+    return out
+}
+
+append(out: string, line: string) -> string {
+    out = string.concat(out, line)
+    out = string.concat(out, "\n")
+    return out
+}
+
+must_string(obj: ptr, key: string) -> string {
+    v, err = json.object_get(obj, key)
+    if err != "" || v == null {
+        fail(string.concat("missing string key: ", key))
+    }
+    s, err2 = json.get_string(v)
+    if err2 != "" {
+        fail(string.concat("expected string for key: ", key))
+    }
+    return s
+}
+
+must_ptr(obj: ptr, key: string) -> ptr {
+    v, err = json.object_get(obj, key)
+    if err != "" || v == null {
+        fail(string.concat("missing key: ", key))
+    }
+    return v
+}
+
+base_name(path: string) -> string {
+    return path_basename(path)
+}
+
+trim_suffix(s: string, suffix: string) -> string {
+    if string.ends_with(s, suffix) != 1 {
+        return s
+    }
+    return string.substring(s, 0, string.length(s) - string.length(suffix))
+}
+
+module_stem(path: string) -> string {
+    return trim_suffix(base_name(path), ".ae")
+}
+
+kind_of(value: ptr) -> string {
+    kind_v, err = json.object_get(value, "kind")
+    if err != "" || kind_v == null {
+        fail("type node missing kind")
+    }
+    kind_s, err2 = json.get_string(kind_v)
+    if err2 != "" {
+        fail("type node kind must be string")
+    }
+    return kind_s
+}
+
+render_ts_type(ty: ptr) -> string {
+    kind = kind_of(ty)
+    if kind == "primitive" {
+        name = must_string(ty, "name")
+        if name == "string" { return "string" }
+        if name == "bool" { return "boolean" }
+        if name == "float32" { return "number" }
+        if name == "int32" { return "number" }
+        return "unknown"
+    }
+    if kind == "array" {
+        elem = must_ptr(ty, "element")
+        out = render_ts_type(elem)
+        out = string.concat(out, "[]")
+        return out
+    }
+    if kind == "optional" {
+        inner = must_ptr(ty, "inner")
+        out = render_ts_type(inner)
+        out = string.concat(out, " | null")
+        return out
+    }
+    if kind == "keyed_array" {
+        elem2 = must_ptr(ty, "element")
+        out = "Record<string, "
+        out = string.concat(out, render_ts_type(elem2))
+        out = string.concat(out, ">")
+        return out
+    }
+    if kind == "ref" {
+        return must_string(ty, "name")
+    }
+    return "unknown"
+}
+
+render_py_type(ty: ptr) -> string {
+    kind = kind_of(ty)
+    if kind == "primitive" {
+        name = must_string(ty, "name")
+        if name == "string" { return "str" }
+        if name == "bool" { return "bool" }
+        if name == "float32" { return "float" }
+        if name == "int32" { return "int" }
+        return "object"
+    }
+    if kind == "array" {
+        elem = must_ptr(ty, "element")
+        out = "list["
+        out = string.concat(out, render_py_type(elem))
+        out = string.concat(out, "]")
+        return out
+    }
+    if kind == "optional" {
+        inner = must_ptr(ty, "inner")
+        out = render_py_type(inner)
+        out = string.concat(out, " | None")
+        return out
+    }
+    if kind == "keyed_array" {
+        elem2 = must_ptr(ty, "element")
+        out = "dict[str, "
+        out = string.concat(out, render_py_type(elem2))
+        out = string.concat(out, "]")
+        return out
+    }
+    if kind == "ref" {
+        return must_string(ty, "name")
+    }
+    return "object"
+}
+
+render_ts_literal(value: ptr) -> string {
+    t = json.type(value)
+    if t == JSON_NULL { return "null" }
+    if t == JSON_BOOL {
+        if json.get_bool(value) == 1 { return "true" }
+        return "false"
+    }
+    if t == JSON_NUMBER {
+        return string.from_float(json.get_number(value))
+    }
+    if t == JSON_STRING {
+        s, err = json.get_string(value)
+        if err != "" { fail(err) }
+        return quote(s)
+    }
+    if t == JSON_ARRAY {
+        out = "["
+        n = json.array_size(value)
+        i = 0
+        while i < n {
+            item, ierr = json.array_get(value, i)
+            if ierr != "" { fail(ierr) }
+            if i > 0 { out = string.concat(out, ", ") }
+            out = string.concat(out, render_ts_literal(item))
+            i = i + 1
+        }
+        out = string.concat(out, "]")
+        return out
+    }
+    if t == JSON_OBJECT {
+        out = "{"
+        n = json.object_size(value)
+        i = 0
+        while i < n {
+            key, item, err = json.object_entry(value, i)
+            if err != "" { fail(err) }
+            if i > 0 { out = string.concat(out, ", ") }
+            out = string.concat(out, quote(key))
+            out = string.concat(out, ": ")
+            out = string.concat(out, render_ts_literal(item))
+            i = i + 1
+        }
+        out = string.concat(out, "}")
+        return out
+    }
+    return "null"
+}
+
+render_py_literal(value: ptr) -> string {
+    t = json.type(value)
+    if t == JSON_NULL { return "None" }
+    if t == JSON_BOOL {
+        if json.get_bool(value) == 1 { return "True" }
+        return "False"
+    }
+    if t == JSON_NUMBER {
+        return string.from_float(json.get_number(value))
+    }
+    if t == JSON_STRING {
+        s, err = json.get_string(value)
+        if err != "" { fail(err) }
+        return quote(s)
+    }
+    if t == JSON_ARRAY {
+        out = "["
+        n = json.array_size(value)
+        i = 0
+        while i < n {
+            item, ierr = json.array_get(value, i)
+            if ierr != "" { fail(ierr) }
+            if i > 0 { out = string.concat(out, ", ") }
+            out = string.concat(out, render_py_literal(item))
+            i = i + 1
+        }
+        out = string.concat(out, "]")
+        return out
+    }
+    if t == JSON_OBJECT {
+        out = "{"
+        n = json.object_size(value)
+        i = 0
+        while i < n {
+            key, item, err = json.object_entry(value, i)
+            if err != "" { fail(err) }
+            if i > 0 { out = string.concat(out, ", ") }
+            out = string.concat(out, quote(key))
+            out = string.concat(out, ": ")
+            out = string.concat(out, render_py_literal(item))
+            i = i + 1
+        }
+        out = string.concat(out, "}")
+        return out
+    }
+    return "None"
+}
+
+member_name(enum_name: string, name: string) -> string {
+    out = enum_name
+    out = string.concat(out, name)
+    return out
+}
+
+render_ts_struct(name: string, fields: ptr) -> string {
+    out = "export interface "
+    out = string.concat(out, name)
+    out = string.concat(out, " {\n")
+    n = json.array_size(fields)
+    i = 0
+    while i < n {
+        field, err = json.array_get(fields, i)
+        if err != "" { fail(err) }
+        fname = must_string(field, "name")
+        ftype = must_ptr(field, "type")
+        line = "  "
+        line = string.concat(line, fname)
+        line = string.concat(line, ": ")
+        line = string.concat(line, render_ts_type(ftype))
+        line = string.concat(line, ";\n")
+        out = string.concat(out, line)
+        i = i + 1
+    }
+    out = string.concat(out, "}\n")
+    return out
+}
+
+render_py_struct(name: string, fields: ptr) -> string {
+    out = "@dataclass\n"
+    out = string.concat(out, "class ")
+    out = string.concat(out, name)
+    out = string.concat(out, ":\n")
+    n = json.array_size(fields)
+    if n == 0 {
+        out = string.concat(out, "    pass\n")
+        return out
+    }
+    i = 0
+    while i < n {
+        field, err = json.array_get(fields, i)
+        if err != "" { fail(err) }
+        fname = must_string(field, "name")
+        ftype = must_ptr(field, "type")
+        line = "    "
+        line = string.concat(line, fname)
+        line = string.concat(line, ": ")
+        line = string.concat(line, render_py_type(ftype))
+        line = string.concat(line, "\n")
+        out = string.concat(out, line)
+        i = i + 1
+    }
+    return out
+}
+
+render_ts_enum(enum_name: string, members: ptr) -> string {
+    n = json.array_size(members)
+    has_fields = 0
+    i = 0
+    while i < n {
+        m, err = json.array_get(members, i)
+        if err != "" { fail(err) }
+        if kind_of(m) == "field" {
+            has_fields = 1
+        }
+        i = i + 1
+    }
+
+    out = ""
+    i = 0
+    first = 1
+    if has_fields == 0 {
+        out = "export type "
+        out = string.concat(out, enum_name)
+        out = string.concat(out, " = ")
+        while i < n {
+            m2, err2 = json.array_get(members, i)
+            if err2 != "" { fail(err2) }
+            if first == 0 { out = string.concat(out, " | ") }
+            if kind_of(m2) == "variant" {
+                out = string.concat(out, quote(must_string(m2, "name")))
+            } else {
+                out = string.concat(out, quote(must_string(m2, "name")))
+            }
+            first = 0
+            i = i + 1
+        }
+        out = string.concat(out, ";\n")
+        return out
+    }
+
+    i = 0
+    while i < n {
+        m3, err3 = json.array_get(members, i)
+        if err3 != "" { fail(err3) }
+        if kind_of(m3) == "field" {
+            child = member_name(enum_name, must_string(m3, "name"))
+            out = string.concat(out, "export interface ")
+            out = string.concat(out, child)
+            out = string.concat(out, " {\n")
+            line = "  "
+            line = string.concat(line, must_string(m3, "name"))
+            line = string.concat(line, ": ")
+            line = string.concat(line, render_ts_type(must_ptr(m3, "type")))
+            line = string.concat(line, ";\n")
+            out = string.concat(out, line)
+            out = string.concat(out, "}\n")
+        }
+        i = i + 1
+    }
+
+    out = string.concat(out, "export type ")
+    out = string.concat(out, enum_name)
+    out = string.concat(out, " = ")
+    i = 0
+    first = 1
+    while i < n {
+        m4, err4 = json.array_get(members, i)
+        if err4 != "" { fail(err4) }
+        if first == 0 { out = string.concat(out, " | ") }
+        if kind_of(m4) == "variant" {
+            out = string.concat(out, quote(must_string(m4, "name")))
+        } else {
+            out = string.concat(out, member_name(enum_name, must_string(m4, "name")))
+        }
+        first = 0
+        i = i + 1
+    }
+    out = string.concat(out, ";\n")
+    return out
+}
+
+render_py_enum(enum_name: string, members: ptr) -> string {
+    n = json.array_size(members)
+    has_fields = 0
+    i = 0
+    while i < n {
+        m, err = json.array_get(members, i)
+        if err != "" { fail(err) }
+        if kind_of(m) == "field" {
+            has_fields = 1
+        }
+        i = i + 1
+    }
+
+    out = ""
+    if has_fields == 0 {
+        out = "class "
+        out = string.concat(out, enum_name)
+        out = string.concat(out, "(Enum):\n")
+        i = 0
+        if n == 0 {
+            out = string.concat(out, "    pass\n")
+            return out
+        }
+        while i < n {
+            m2, err2 = json.array_get(members, i)
+            if err2 != "" { fail(err2) }
+            line = "    "
+            line = string.concat(line, must_string(m2, "name"))
+            line = string.concat(line, " = ")
+            line = string.concat(line, quote(must_string(m2, "name")))
+            line = string.concat(line, "\n")
+            out = string.concat(out, line)
+            i = i + 1
+        }
+        return out
+    }
+
+    i = 0
+    while i < n {
+        m3, err3 = json.array_get(members, i)
+        if err3 != "" { fail(err3) }
+        if kind_of(m3) == "field" {
+            child = member_name(enum_name, must_string(m3, "name"))
+            out = string.concat(out, "@dataclass\nclass ")
+            out = string.concat(out, child)
+            out = string.concat(out, ":\n")
+            line = "    "
+            line = string.concat(line, must_string(m3, "name"))
+            line = string.concat(line, ": ")
+            line = string.concat(line, render_py_type(must_ptr(m3, "type")))
+            line = string.concat(line, "\n")
+            out = string.concat(out, line)
+        }
+        i = i + 1
+    }
+
+    out = string.concat(out, enum_name)
+    out = string.concat(out, " = ")
+    first = 1
+    i = 0
+    while i < n {
+        m4, err4 = json.array_get(members, i)
+        if err4 != "" { fail(err4) }
+        if first == 0 { out = string.concat(out, " | ") }
+        if kind_of(m4) == "variant" {
+            out = string.concat(out, "Literal[")
+            out = string.concat(out, quote(must_string(m4, "name")))
+            out = string.concat(out, "]")
+        } else {
+            out = string.concat(out, member_name(enum_name, must_string(m4, "name")))
+        }
+        first = 0
+        i = i + 1
+    }
+    out = string.concat(out, "\n")
+    return out
+}
+
+render_ts_constant(name: string, value: ptr) -> string {
+    out = "export const "
+    out = string.concat(out, name)
+    out = string.concat(out, " = ")
+    out = string.concat(out, render_ts_literal(value))
+    out = string.concat(out, ";\n")
+    return out
+}
+
+render_py_constant(name: string, value: ptr) -> string {
+    out = name
+    out = string.concat(out, " = ")
+    out = string.concat(out, render_py_literal(value))
+    out = string.concat(out, "\n")
+    return out
+}
+
+render_ts_method(name: string, request: ptr, response: ptr) -> string {
+    out = "export function "
+    out = string.concat(out, name)
+    out = string.concat(out, "(request: ")
+    out = string.concat(out, render_ts_type(request))
+    out = string.concat(out, "): ")
+    out = string.concat(out, render_ts_type(response))
+    out = string.concat(out, " {\n")
+    out = append(out, "  throw new Error(\"Not implemented\")")
+    out = string.concat(out, "}\n")
+    return out
+}
+
+render_py_method(name: string, request: ptr, response: ptr) -> string {
+    out = "def "
+    out = string.concat(out, name)
+    out = string.concat(out, "(request: ")
+    out = string.concat(out, render_py_type(request))
+    out = string.concat(out, ") -> ")
+    out = string.concat(out, render_py_type(response))
+    out = string.concat(out, ":\n")
+    out = append(out, "    raise NotImplementedError()")
+    return out
+}
+
+render_ts_module(name: string, decls: ptr) -> string {
+    out = "// Generated by skir; do not edit.\n"
+    n = json.array_size(decls)
+    i = 0
+    while i < n {
+        decl, err = json.array_get(decls, i)
+        if err != "" { fail(err) }
+        kind = must_string(decl, "kind")
+        if kind == "struct" {
+            out = string.concat(out, render_ts_struct(must_string(decl, "name"), must_ptr(decl, "fields")))
+        } else if kind == "enum" {
+            out = string.concat(out, render_ts_enum(must_string(decl, "name"), must_ptr(decl, "members")))
+        } else if kind == "constant" {
+            value_json = must_ptr(decl, "value")
+            out = string.concat(out, render_ts_constant(must_string(decl, "name"), value_json))
+        } else if kind == "method" {
+            out = string.concat(out, render_ts_method(must_string(decl, "name"), must_ptr(decl, "request"), must_ptr(decl, "response")))
+        }
+        out = string.concat(out, "\n")
+        i = i + 1
+    }
+    return out
+}
+
+render_py_module(name: string, decls: ptr) -> string {
+    out = "from __future__ import annotations\n"
+    out = string.concat(out, "from dataclasses import dataclass\n")
+    out = string.concat(out, "from enum import Enum\n")
+    out = string.concat(out, "from typing import Literal\n\n")
+    n = json.array_size(decls)
+    i = 0
+    while i < n {
+        decl, err = json.array_get(decls, i)
+        if err != "" { fail(err) }
+        kind = must_string(decl, "kind")
+        if kind == "struct" {
+            out = string.concat(out, render_py_struct(must_string(decl, "name"), must_ptr(decl, "fields")))
+        } else if kind == "enum" {
+            out = string.concat(out, render_py_enum(must_string(decl, "name"), must_ptr(decl, "members")))
+        } else if kind == "constant" {
+            out = string.concat(out, render_py_constant(must_string(decl, "name"), must_ptr(decl, "value")))
+        } else if kind == "method" {
+            out = string.concat(out, render_py_method(must_string(decl, "name"), must_ptr(decl, "request"), must_ptr(decl, "response")))
+        }
+        out = string.concat(out, "\n")
+        i = i + 1
+    }
+    return out
+}
+
+render_ts_root(modules: ptr) -> string {
+    out = "// Generated by skir; do not edit.\n"
+    n = json.array_size(modules)
+    i = 0
+    while i < n {
+        mod, err = json.array_get(modules, i)
+        if err != "" { fail(err) }
+        path = must_string(mod, "path")
+        out = string.concat(out, "export * from \"./")
+        out = string.concat(out, module_stem(path))
+        out = string.concat(out, "\";\n")
+        i = i + 1
+    }
+    return out
+}
+
+render_py_root(modules: ptr) -> string {
+    out = "# Generated by skir; do not edit.\n"
+    n = json.array_size(modules)
+    i = 0
+    while i < n {
+        mod, err = json.array_get(modules, i)
+        if err != "" { fail(err) }
+        path = must_string(mod, "path")
+        out = string.concat(out, "from .")
+        out = string.concat(out, module_stem(path))
+        out = string.concat(out, " import *\n")
+        i = i + 1
+    }
+    return out
+}
+
+render_ts_package() -> string {
+    return "{\n  \"name\": \"skir-bindings\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"version\": \"0.0.0\"\n}\n"
+}
+
+render_pyproject() -> string {
+    return "[build-system]\nrequires = [\"setuptools>=68\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"skir-bindings\"\nversion = \"0.0.0\"\nrequires-python = \">=3.10\"\n"
+}
+
+main() {
+    argc = aether_args_count()
+    if argc < 3 {
+        fail("usage: skir-bindgen <ir.json> <out-dir>")
+    }
+
+    ir_path = aether_args_get(1)
+    out_dir = aether_args_get(2)
+    lang = "typescript"
+    if string.contains(out_dir, "python") == 1 {
+        lang = "python"
+    } else if string.contains(out_dir, "typescript") == 1 {
+        lang = "typescript"
+    } else if argc >= 4 {
+        lang = aether_args_get(3)
+    } else {
+        argv0 = os.argv0()
+        base = path_basename(argv0)
+        if string.contains(base, "python") == 1 {
+            lang = "python"
+        }
+    }
+    text, read_err = fs.read(ir_path)
+    if read_err != "" {
+        fail(string.concat("cannot read IR: ", read_err))
+    }
+    root, parse_err = json.parse(text)
+    if parse_err != "" || root == null {
+        fail(string.concat("cannot parse IR: ", parse_err))
+    }
+
+    modules = must_ptr(root, "modules")
+    if json.array_size(modules) == 0 {
+        fail("IR has no modules")
+    }
+
+    mkdir_err = fs.mkdir_p(out_dir)
+    if mkdir_err != "" {
+        fail(string.concat("cannot create output directory: ", mkdir_err))
+    }
+
+    if lang == "typescript" {
+        out_file = path_join(out_dir, "index.ts")
+        write_err = fs.write(out_file, render_ts_root(modules))
+        if write_err != "" { fail(write_err) }
+
+        pkg = path_join(out_dir, "package.json")
+        write_err2 = fs.write(pkg, render_ts_package())
+        if write_err2 != "" { fail(write_err2) }
+
+        nmods = json.array_size(modules)
+        i = 0
+        while i < nmods {
+            mod, err = json.array_get(modules, i)
+            if err != "" { fail(err) }
+            path = must_string(mod, "path")
+            decls = must_ptr(mod, "declarations")
+            stem = module_stem(path)
+            mod_file = path_join(out_dir, string.concat(stem, ".ts"))
+            write_err3 = fs.write(mod_file, render_ts_module(stem, decls))
+            if write_err3 != "" { fail(write_err3) }
+            i = i + 1
+        }
+    } else {
+        pkg_dir = path_join(out_dir, "skir")
+        mk_err = fs.mkdir_p(pkg_dir)
+        if mk_err != "" { fail(mk_err) }
+        root_file = path_join(pkg_dir, "__init__.py")
+        write_err3 = fs.write(root_file, render_py_root(modules))
+        if write_err3 != "" { fail(write_err3) }
+
+        nmods = json.array_size(modules)
+        i = 0
+        while i < nmods {
+            mod, err = json.array_get(modules, i)
+            if err != "" { fail(err) }
+            path = must_string(mod, "path")
+            decls = must_ptr(mod, "declarations")
+            stem = module_stem(path)
+            mod_file = path_join(pkg_dir, string.concat(stem, ".py"))
+            write_err4 = fs.write(mod_file, render_py_module(stem, decls))
+            if write_err4 != "" { fail(write_err4) }
+            i = i + 1
+        }
+
+        pyproject = path_join(out_dir, "pyproject.toml")
+        write_err5 = fs.write(pyproject, render_pyproject())
+        if write_err5 != "" { fail(write_err5) }
+    }
+
+    json.free(root)
+}

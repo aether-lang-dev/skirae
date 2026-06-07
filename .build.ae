@@ -1,8 +1,11 @@
 import build
+import build (dep)
 import aether
 
 main() {
     b = build.start()
+    dep(b, "generators/typescript/.build.ae")
+    dep(b, "generators/python/.build.ae")
     aether.program(b) {
         source("aether/skir.ae")
         output("skir")

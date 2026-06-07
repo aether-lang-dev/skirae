@@ -1,0 +1,67 @@
+{
+  "name": "skir-cc-gen",
+  "version": "1.0.16",
+  "description": "",
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gepheum/skir-cc-gen.git"
+  },
+  "license": "ISC",
+  "author": "Tyler Fibonacci <gepheum@gmail.com>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "module": "./dist/index.js",
+  "files": [
+    "dist",
+    "src",
+    "client"
+  ],
+  "scripts": {
+    "build": "tsc && cd e2e-test && skir gen && cd ..",
+    "copy-to-client": "cp e2e-test/skir.h client && cp e2e-test/skir.cc client && cp e2e-test/skir.testing.h client",
+    "copy-to-client:check": "diff -s e2e-test/skir.h client/skir.h && diff -s e2e-test/skir.cc client/skir.cc && diff -s e2e-test/skir.testing.h client/skir.testing.h",
+    "format-skir": "cd e2e-test && skir format && cd ..",
+    "format-skir:check": "cd e2e-test && skir format --ci && cd ..",
+    "format-cc": "find e2e-test -maxdepth 1 \\( -name '*.cc' -o -name '*.h' \\) -exec clang-format --Werror -i {} +",
+    "format-cc:check": "find e2e-test -maxdepth 1 \\( -name '*.cc' -o -name '*.h' \\) -exec clang-format --dry-run --Werror -i {} +",
+    "format": "prettier --write \"**/*.ts\" && npm run format-skir && npm run format-cc",
+    "format:check": "prettier --check \"**/*.ts\" && npm run format-skir:check && npm run format-cc:check",
+    "gen-clang-json": "cd e2e-test && cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cd ..",
+    "test-cc": "cd e2e-test && cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && ctest --test-dir build --output-on-failure && cd ..",
+    "build-client": "cd client && cmake -S . -B build && cmake --build build && cd ..",
+    "test": "npm run build && npm run test-cc && npm run build-client",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "dependencies": {
+    "skir-internal": "^0.2.19",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "buckwheat": "^1.1.2",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
+    "prettier": "^3.2.4",
+    "prettier-plugin-organize-imports": "^4.2.0",
+    "skir": "^1.2.11",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^8.50.1"
+  },
+  "overrides": {
+    "minimatch": "^10.2.2",
+    "diff": "^8.0.3",
+    "serialize-javascript": "^7.0.4"
+  }
+}

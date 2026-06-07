@@ -1,0 +1,7 @@
+.DS_Store
+.dart_tool
+dist
+node_modules
+skir-external
+skirout
+tsconfig.tsbuildinfo

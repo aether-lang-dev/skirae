@@ -1,0 +1,19 @@
+.{
+    .name = .zig_e2e_test,
+    .version = "0.1.0",
+    .fingerprint = 0xbc57ebaecaee3a42,
+    .minimum_zig_version = "0.15.0",
+    .dependencies = .{
+        .skir_client = .{
+            .url = "https://github.com/gepheum/skir-zig-client/archive/refs/tags/v0.1.8.tar.gz",
+            .hash = "skir_client-0.1.7-Bu7WIO9kBABy9eL-eWA9lov27G857Q6nFoA1lKcBWyF8",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "skir-src",
+        "skir.yml",
+    },
+}
