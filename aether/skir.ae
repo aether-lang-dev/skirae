@@ -301,25 +301,101 @@ collect_ir(root: string) -> (string, int) {
     return out, failed
 }
 
+next_json_string_after(source: string, key: string, start: int) -> (string, int) {
+    needle = string.concat("\"", key)
+    needle = string.concat(needle, "\"")
+    key_pos = string.index_of_from(source, needle, start)
+    if key_pos < 0 {
+        return "", -1
+    }
+    colon_pos = string.index_of_from(source, ":", key_pos + string.length(needle))
+    if colon_pos < 0 {
+        return "", -1
+    }
+    quote_pos = string.index_of_from(source, "\"", colon_pos + 1)
+    if quote_pos < 0 {
+        return "", -1
+    }
+    i = quote_pos + 1
+    n = string.length(source)
+    while i < n {
+        ch = string.char_at(source, i)
+        if ch == 92 {
+            i = i + 2
+        } else if ch == 34 {
+            value = string.substring(source, quote_pos + 1, i)
+            return value, i + 1
+        } else {
+            i = i + 1
+        }
+    }
+    return "", -1
+}
+
+write_ir_outputs(root: string, ir: string) -> int {
+    config_path = path_join(root, "skir.json")
+    config, read_err = fs.read(config_path)
+    if read_err != "" {
+        println(string.concat("Cannot find ", config_path))
+        return 1
+    }
+
+    wrote = 0
+    pos = 0
+    while true {
+        out_dir_raw, next_pos = next_json_string_after(config, "outDir", pos)
+        if next_pos < 0 {
+            break
+        }
+        out_dir = out_dir_raw
+        if string.starts_with(out_dir, "./") == 1 {
+            out_dir = string.substring(out_dir, 2, string.length(out_dir))
+        }
+        if out_dir == "" {
+            out_dir = "skirout"
+        }
+        out_path_dir = path_join(root, out_dir)
+        err_mkdir = fs.mkdir_p(out_path_dir)
+        if err_mkdir != "" {
+            println(string.concat("Cannot create ", out_path_dir))
+            return 1
+        }
+        out_path = path_join(out_path_dir, "skir-ir.json")
+        err_write = fs.write(out_path, ir)
+        if err_write != "" {
+            println(string.concat("Cannot write ", out_path))
+            return 1
+        }
+        println(string.concat("Generated ", out_path))
+        wrote = 1
+        pos = next_pos
+    }
+
+    if wrote == 0 {
+        out_path_dir2 = path_join(root, "skirout")
+        err_mkdir2 = fs.mkdir_p(out_path_dir2)
+        if err_mkdir2 != "" {
+            println(string.concat("Cannot create ", out_path_dir2))
+            return 1
+        }
+        out_path2 = path_join(out_path_dir2, "skir-ir.json")
+        err_write2 = fs.write(out_path2, ir)
+        if err_write2 != "" {
+            println(string.concat("Cannot write ", out_path2))
+            return 1
+        }
+        println(string.concat("Generated ", out_path2))
+    }
+
+    return 0
+}
+
 run_gen(root: string) -> int {
     ir, failed = collect_ir(root)
     if failed != 0 {
         return 1
     }
-    out_dir = path_join(root, "skirout")
-    err_mkdir = fs.mkdir_p(out_dir)
-    if err_mkdir != "" {
-        println(string.concat("Cannot create ", out_dir))
-        return 1
-    }
-    out_path = path_join(out_dir, "skir-ir.json")
-    err_write = fs.write(out_path, ir)
-    if err_write != "" {
-        println(string.concat("Cannot write ", out_path))
-        return 1
-    }
-    println(string.concat("Generated ", out_path))
-    return 0
+    return write_ir_outputs(root, ir)
 }
 
 run_format(root: string) -> int {
