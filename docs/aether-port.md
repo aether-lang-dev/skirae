@@ -2,8 +2,8 @@
 
 Skir's executable core now lives in `aether/skir.ae`. The command wrapper at
 `bin/skir` builds it with `ae build` and runs the native binary from
-`build/skir-ae`. The repo build target is `.build.ae` for aeb; there is no root
-npm package.
+`build/skir-ae`. The repo build target is `.build.ae` for aeb, and tests run
+through `.tests.ae` using Aeocha; there is no root npm package.
 
 Current native surface:
 

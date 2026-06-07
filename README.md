@@ -90,6 +90,17 @@ target shape: declarative enough to read as schema, but still native Aether code
 with conditionals, loops, and helper functions available when schema generation
 needs them.
 
+## Tests
+
+Tests are Aeocha BDD tests under `tests/`, run as an aeb target:
+
+```sh
+/home/paul/scm/aeb/aeb .tests.ae
+```
+
+The current test target compiles `tests/skir_aeocha.ae`, which exercises the
+schema DSL and the native CLI smoke path.
+
 ## Status
 
 The native CLI surface exists and no TypeScript implementation or root npm
