@@ -31,12 +31,13 @@ The port has changed the shape of the project substantially:
   native binary is about 112 KiB locally.
 - **Aether schema DSL**: `skir_schema` builds schema IR directly. `.skir` is no
   longer the intended intermediate for this showcase path.
-- **Native binding generators**: `aeb .build.ae` builds the TypeScript and
-  Python generators from Aether source. They emit package metadata plus
-  language files from `skir-ir.json`.
-- **Vendored generator monorepo**: the historical Node generator sources are
-  checked in under `generators/node/<language>`, one directory per language,
-  so the repo now carries the full generator family alongside the native port.
+- **Native binding generators**: `aeb .build.ae` builds one native Aether
+  generator binary per language under `generators/<language>`. TypeScript and
+  Python emit package metadata; every target emits language files from
+  `skir-ir.json`.
+- **Reference-only Node sources**: local `genrs/` clones can be used to compare
+  against the historical TypeScript generators, but they are ignored and not
+  part of this repository.
 - **aeb-native build/test targets**: `.build.ae` builds the CLI and `.tests.ae`
   runs Aeocha tests.
 
@@ -67,7 +68,7 @@ bin/skir version
 The build target also produces generator binaries under
 `target/build/generators/...`. The test target compiles and runs
 `tests/skir_aeocha.ae`, which exercises the schema DSL, the native CLI smoke
-path, and the generator handoff.
+path, and the generator handoff for every supported language target.
 
 ## Schema DSL
 
@@ -97,22 +98,19 @@ skir.json
 skir-src/
   hello_world.ae
 generators/
-  typescript/
+  cpp/
+  csharp/
+  dart/
+  gleam/
+  go/
+  java/
+  kotlin/
+  moonbit/
   python/
-  node/
-    cpp/
-    csharp/
-    dart/
-    gleam/
-    go/
-    java/
-    kotlin/
-    moonbit/
-    python/
-    rust/
-    swift/
-    typescript/
-    zig/
+  rust/
+  swift/
+  typescript/
+  zig/
 ```
 
 `skir gen` runs schema programs under `skir-src/**/*.ae` and writes:
@@ -150,10 +148,9 @@ When `command` is present, Skir runs:
 ```
 
 That keeps the core native and lets each target-language generator evolve as a
-separate executable. In this repo, `aeb .build.ae` builds the generator
-binaries first, then `skir gen` can invoke them. A TypeScript generator may
-emit its own `package.json` inside its output directory; the Python generator
-emits `pyproject.toml`.
+separate executable. In this repo, `aeb .build.ae` builds all generator
+binaries first, then `skir gen` can invoke them. The TypeScript generator emits
+`package.json`; the Python generator emits `pyproject.toml`.
 
 ## Status
 

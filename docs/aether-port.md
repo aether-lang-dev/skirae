@@ -32,8 +32,8 @@ main() {
 }
 ```
 
-Future language generators should consume the IR rather than importing the old
-TypeScript parser.
+Language generators consume the IR rather than importing the old TypeScript
+parser. The native generator targets live under `generators/<language>`.
 
 Generator config is JSON:
 
@@ -68,8 +68,10 @@ the Skir core. In this repo, `aeb .build.ae` builds those binaries under
 
 Language-specific package metadata belongs to the binding generator output. The
 TypeScript generator emits `package.json`; the Python generator emits
-`pyproject.toml`. Skir itself does not use npm as build or runtime
-infrastructure.
+`pyproject.toml`; the remaining language generators emit source modules only in
+this first native pass. Skir itself does not use npm as build or runtime
+infrastructure. Local `genrs/` clones are reference material for comparing
+against the historical Node implementations and are intentionally ignored.
 
 The port intentionally uses `skir.json` for the new config path. Aether does not
 currently ship a YAML parser, and reintroducing Node only to parse `skir.yml`

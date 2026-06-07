@@ -70,7 +70,7 @@ main() {
             }
 
             aeocha.it("initializes and generates IR") callback {
-                root = "/tmp/skir_aeocha_project"
+                root = "/tmp/skir_aeocha_project_all_generators"
                 mkdir_err = fs.mkdir_p(root)
                 aeocha.assert_str_eq(fw, mkdir_err, "", "temp root created")
                 out_init, code_init, err_init = run_capture2("/home/paul/scm/skir/bin/skir", "init", "--root=${root}")
@@ -84,7 +84,7 @@ main() {
                 aeocha.expect_stdout_contains(fw, build_out, "generators/typescript", "build names generators")
 
                 config_path = "${root}/skir.json"
-                config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" },\n    {\n      \"kind\": \"external\",\n      \"outDir\": \"./bindings/typescript\",\n      \"command\": \"/home/paul/scm/skir/target/build/generators/typescript/bin/skir-typescript-gen\"\n    },\n    {\n      \"kind\": \"external\",\n      \"outDir\": \"./bindings/python\",\n      \"command\": \"/home/paul/scm/skir/target/build/generators/python/bin/skir-python-gen\"\n    }\n  ],\n  \"dependencies\": {}\n}\n"
+                config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/typescript\", \"command\": \"/home/paul/scm/skir/target/build/generators/typescript/bin/skir-typescript-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/python\", \"command\": \"/home/paul/scm/skir/target/build/generators/python/bin/skir-python-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/cpp\", \"command\": \"/home/paul/scm/skir/target/build/generators/cpp/bin/skir-cpp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/java\", \"command\": \"/home/paul/scm/skir/target/build/generators/java/bin/skir-java-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/csharp\", \"command\": \"/home/paul/scm/skir/target/build/generators/csharp/bin/skir-csharp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/kotlin\", \"command\": \"/home/paul/scm/skir/target/build/generators/kotlin/bin/skir-kotlin-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/rust\", \"command\": \"/home/paul/scm/skir/target/build/generators/rust/bin/skir-rust-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/go\", \"command\": \"/home/paul/scm/skir/target/build/generators/go/bin/skir-go-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/dart\", \"command\": \"/home/paul/scm/skir/target/build/generators/dart/bin/skir-dart-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/swift\", \"command\": \"/home/paul/scm/skir/target/build/generators/swift/bin/skir-swift-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/gleam\", \"command\": \"/home/paul/scm/skir/target/build/generators/gleam/bin/skir-gleam-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/zig\", \"command\": \"/home/paul/scm/skir/target/build/generators/zig/bin/skir-zig-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/moonbit\", \"command\": \"/home/paul/scm/skir/target/build/generators/moonbit/bin/skir-moonbit-gen\" }\n  ],\n  \"dependencies\": {}\n}\n"
                 write_err = fs.write(config_path, config)
                 aeocha.assert_str_eq(fw, write_err, "", "generator config written")
 
@@ -115,6 +115,40 @@ main() {
                 py_text, py_err = fs.read(bindings_py_mod)
                 aeocha.assert_str_eq(fw, py_err, "", "Python output read")
                 aeocha.assert_contains(fw, py_text, "class Greeting", "python dataclass")
+
+                cpp_text, cpp_err = fs.read("${root}/bindings/cpp/schema.hpp")
+                aeocha.assert_str_eq(fw, cpp_err, "", "C++ output read")
+                aeocha.assert_contains(fw, cpp_text, "struct Greeting", "cpp struct")
+                java_text, java_err = fs.read("${root}/bindings/java/schema.java")
+                aeocha.assert_str_eq(fw, java_err, "", "Java output read")
+                aeocha.assert_contains(fw, java_text, "public record Greeting", "java record")
+                csharp_text, csharp_err = fs.read("${root}/bindings/csharp/schema.cs")
+                aeocha.assert_str_eq(fw, csharp_err, "", "C# output read")
+                aeocha.assert_contains(fw, csharp_text, "record Greeting", "csharp record")
+                kotlin_text, kotlin_err = fs.read("${root}/bindings/kotlin/schema.kt")
+                aeocha.assert_str_eq(fw, kotlin_err, "", "Kotlin output read")
+                aeocha.assert_contains(fw, kotlin_text, "data class Greeting", "kotlin data class")
+                rust_text, rust_err = fs.read("${root}/bindings/rust/schema.rs")
+                aeocha.assert_str_eq(fw, rust_err, "", "Rust output read")
+                aeocha.assert_contains(fw, rust_text, "pub struct Greeting", "rust struct")
+                go_text, go_err = fs.read("${root}/bindings/go/schema.go")
+                aeocha.assert_str_eq(fw, go_err, "", "Go output read")
+                aeocha.assert_contains(fw, go_text, "type Greeting struct", "go struct")
+                dart_text, dart_err = fs.read("${root}/bindings/dart/schema.dart")
+                aeocha.assert_str_eq(fw, dart_err, "", "Dart output read")
+                aeocha.assert_contains(fw, dart_text, "class Greeting", "dart class")
+                swift_text, swift_err = fs.read("${root}/bindings/swift/schema.swift")
+                aeocha.assert_str_eq(fw, swift_err, "", "Swift output read")
+                aeocha.assert_contains(fw, swift_text, "struct Greeting", "swift struct")
+                gleam_text, gleam_err = fs.read("${root}/bindings/gleam/schema.gleam")
+                aeocha.assert_str_eq(fw, gleam_err, "", "Gleam output read")
+                aeocha.assert_contains(fw, gleam_text, "pub type Greeting", "gleam type")
+                zig_text, zig_err = fs.read("${root}/bindings/zig/schema.zig")
+                aeocha.assert_str_eq(fw, zig_err, "", "Zig output read")
+                aeocha.assert_contains(fw, zig_text, "pub const Greeting", "zig struct")
+                moonbit_text, moonbit_err = fs.read("${root}/bindings/moonbit/schema.mbt")
+                aeocha.assert_str_eq(fw, moonbit_err, "", "MoonBit output read")
+                aeocha.assert_contains(fw, moonbit_text, "struct Greeting", "moonbit struct")
             }
         }
     }

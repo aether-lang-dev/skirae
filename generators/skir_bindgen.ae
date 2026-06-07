@@ -171,6 +171,137 @@ render_py_type(ty: ptr) -> string {
     return "object"
 }
 
+render_lang_type(lang: string, ty: ptr) -> string {
+    if lang == "typescript" { return render_ts_type(ty) }
+    if lang == "python" { return render_py_type(ty) }
+
+    kind = kind_of(ty)
+    if kind == "primitive" {
+        name = must_string(ty, "name")
+        if lang == "cpp" {
+            if name == "string" { return "std::string" }
+            if name == "bool" { return "bool" }
+            if name == "float32" { return "float" }
+            if name == "int32" { return "std::int32_t" }
+        }
+        if lang == "java" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "boolean" }
+            if name == "float32" { return "float" }
+            if name == "int32" { return "int" }
+        }
+        if lang == "csharp" {
+            if name == "string" { return "string" }
+            if name == "bool" { return "bool" }
+            if name == "float32" { return "float" }
+            if name == "int32" { return "int" }
+        }
+        if lang == "kotlin" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "Boolean" }
+            if name == "float32" { return "Float" }
+            if name == "int32" { return "Int" }
+        }
+        if lang == "rust" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "bool" }
+            if name == "float32" { return "f32" }
+            if name == "int32" { return "i32" }
+        }
+        if lang == "go" {
+            if name == "string" { return "string" }
+            if name == "bool" { return "bool" }
+            if name == "float32" { return "float32" }
+            if name == "int32" { return "int32" }
+        }
+        if lang == "dart" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "bool" }
+            if name == "float32" { return "double" }
+            if name == "int32" { return "int" }
+        }
+        if lang == "swift" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "Bool" }
+            if name == "float32" { return "Float" }
+            if name == "int32" { return "Int32" }
+        }
+        if lang == "gleam" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "Bool" }
+            if name == "float32" { return "Float" }
+            if name == "int32" { return "Int" }
+        }
+        if lang == "zig" {
+            if name == "string" { return "[]const u8" }
+            if name == "bool" { return "bool" }
+            if name == "float32" { return "f32" }
+            if name == "int32" { return "i32" }
+        }
+        if lang == "moonbit" {
+            if name == "string" { return "String" }
+            if name == "bool" { return "Bool" }
+            if name == "float32" { return "Double" }
+            if name == "int32" { return "Int" }
+        }
+        return "object"
+    }
+    if kind == "array" {
+        elem = must_ptr(ty, "element")
+        inner = render_lang_type(lang, elem)
+        if lang == "cpp" { return string.concat(string.concat("std::vector<", inner), ">") }
+        if lang == "java" { return string.concat(string.concat("java.util.List<", inner), ">") }
+        if lang == "csharp" { return string.concat(string.concat("IReadOnlyList<", inner), ">") }
+        if lang == "kotlin" { return string.concat(string.concat("List<", inner), ">") }
+        if lang == "rust" { return string.concat(string.concat("Vec<", inner), ">") }
+        if lang == "go" { return string.concat("[]", inner) }
+        if lang == "dart" { return string.concat(string.concat("List<", inner), ">") }
+        if lang == "swift" { return string.concat(string.concat("[", inner), "]") }
+        if lang == "gleam" { return string.concat(string.concat("List(", inner), ")") }
+        if lang == "zig" { return string.concat("[]", inner) }
+        if lang == "moonbit" { return string.concat(string.concat("Array[", inner), "]") }
+        return inner
+    }
+    if kind == "optional" {
+        inner2 = render_lang_type(lang, must_ptr(ty, "inner"))
+        if lang == "cpp" { return string.concat(string.concat("std::optional<", inner2), ">") }
+        if lang == "java" { return string.concat(string.concat("java.util.Optional<", inner2), ">") }
+        if lang == "csharp" { return string.concat(inner2, "?") }
+        if lang == "kotlin" { return string.concat(inner2, "?") }
+        if lang == "rust" { return string.concat(string.concat("Option<", inner2), ">") }
+        if lang == "go" { return string.concat("*", inner2) }
+        if lang == "dart" { return string.concat(inner2, "?") }
+        if lang == "swift" { return string.concat(inner2, "?") }
+        if lang == "gleam" { return string.concat(string.concat("Option(", inner2), ")") }
+        if lang == "zig" { return string.concat("?", inner2) }
+        if lang == "moonbit" { return string.concat(inner2, "?") }
+        return inner2
+    }
+    if kind == "keyed_array" {
+        elem2 = render_lang_type(lang, must_ptr(ty, "element"))
+        if lang == "cpp" { return string.concat(string.concat("std::map<std::string, ", elem2), ">") }
+        if lang == "java" { return string.concat(string.concat("java.util.Map<String, ", elem2), ">") }
+        if lang == "csharp" { return string.concat(string.concat("IReadOnlyDictionary<string, ", elem2), ">") }
+        if lang == "kotlin" { return string.concat(string.concat("Map<String, ", elem2), ">") }
+        if lang == "rust" { return string.concat(string.concat("std::collections::BTreeMap<String, ", elem2), ">") }
+        if lang == "go" { return string.concat(string.concat("map[string]", elem2), "") }
+        if lang == "dart" { return string.concat(string.concat("Map<String, ", elem2), ">") }
+        if lang == "swift" { return string.concat(string.concat("[String: ", elem2), "]") }
+        if lang == "gleam" { return string.concat(string.concat("Dict(String, ", elem2), ")") }
+        if lang == "zig" { return string.concat(string.concat("std.StringHashMap(", elem2), ")") }
+        if lang == "moonbit" { return string.concat(string.concat("Map[String, ", elem2), "]") }
+        return elem2
+    }
+    if kind == "ref" {
+        return must_string(ty, "name")
+    }
+    return "object"
+}
+
+lower_name(name: string) -> string {
+    return string.to_lower(name)
+}
+
 render_ts_literal(value: ptr) -> string {
     t = json.type(value)
     if t == JSON_NULL { return "null" }
@@ -570,6 +701,268 @@ render_py_module(name: string, decls: ptr) -> string {
     return out
 }
 
+render_generic_struct(lang: string, name: string, fields: ptr) -> string {
+    out = ""
+    if lang == "cpp" {
+        out = string.concat(out, "struct ")
+        out = string.concat(out, name)
+        out = string.concat(out, " {\n")
+    } else if lang == "java" {
+        out = string.concat(string.concat("public record ", name), "(\n")
+    } else if lang == "csharp" {
+        out = string.concat(string.concat("public sealed record ", name), "(\n")
+    } else if lang == "kotlin" {
+        out = string.concat(string.concat("data class ", name), "(\n")
+    } else if lang == "rust" {
+        out = string.concat(string.concat("#[derive(Clone, Debug, PartialEq)]\npub struct ", name), " {\n")
+    } else if lang == "go" {
+        out = string.concat(string.concat("type ", name), " struct {\n")
+    } else if lang == "dart" {
+        out = string.concat(string.concat("class ", name), " {\n")
+    } else if lang == "swift" {
+        out = string.concat(string.concat("public struct ", name), " {\n")
+    } else if lang == "gleam" {
+        out = string.concat(string.concat("pub type ", name), " {\n")
+        out = string.concat(out, string.concat(string.concat("  ", name), "(\n"))
+    } else if lang == "zig" {
+        out = string.concat(string.concat("pub const ", name), " = struct {\n")
+    } else if lang == "moonbit" {
+        out = string.concat(string.concat("pub(all) struct ", name), " {\n")
+    }
+
+    n = json.array_size(fields)
+    i = 0
+    while i < n {
+        field, err = json.array_get(fields, i)
+        if err != "" { fail(err) }
+        fname = must_string(field, "name")
+        ftype = render_lang_type(lang, must_ptr(field, "type"))
+        if lang == "cpp" {
+            out = string.concat(out, "  ")
+            out = string.concat(out, ftype)
+            out = string.concat(out, " ")
+            out = string.concat(out, fname)
+            out = string.concat(out, ";\n")
+        } else if lang == "java" || lang == "csharp" || lang == "kotlin" || lang == "gleam" {
+            out = string.concat(out, "  ")
+            if lang == "kotlin" { out = string.concat(out, "val ") }
+            out = string.concat(out, fname)
+            if lang == "java" || lang == "csharp" {
+                out = string.concat(out, ": ")
+            } else {
+                out = string.concat(out, ": ")
+            }
+            if lang == "java" || lang == "csharp" {
+                out = string.concat(out, ftype)
+            } else {
+                out = string.concat(out, ftype)
+            }
+            if i + 1 < n { out = string.concat(out, ",") }
+            out = string.concat(out, "\n")
+        } else if lang == "rust" {
+            out = string.concat(out, "  pub ")
+            out = string.concat(out, fname)
+            out = string.concat(out, ": ")
+            out = string.concat(out, ftype)
+            out = string.concat(out, ",\n")
+        } else if lang == "go" {
+            out = string.concat(out, "  ")
+            out = string.concat(out, fname)
+            out = string.concat(out, " ")
+            out = string.concat(out, ftype)
+            out = string.concat(out, "\n")
+        } else if lang == "dart" || lang == "swift" || lang == "zig" || lang == "moonbit" {
+            out = string.concat(out, "  ")
+            if lang == "dart" { out = string.concat(out, "final ") }
+            if lang == "swift" { out = string.concat(out, "public let ") }
+            if lang == "moonbit" { out = string.concat(out, "pub ") }
+            out = string.concat(out, fname)
+            out = string.concat(out, ": ")
+            out = string.concat(out, ftype)
+            if lang == "dart" || lang == "zig" { out = string.concat(out, ";") }
+            out = string.concat(out, "\n")
+        }
+        i = i + 1
+    }
+
+    if lang == "java" || lang == "csharp" || lang == "kotlin" {
+        out = string.concat(out, ")")
+        if lang == "java" || lang == "csharp" { out = string.concat(out, " {}") }
+        out = string.concat(out, "\n")
+    } else if lang == "gleam" {
+        out = string.concat(out, "  )\n}\n")
+    } else {
+        out = string.concat(out, "}\n")
+    }
+    return out
+}
+
+render_generic_enum(lang: string, enum_name: string, members: ptr) -> string {
+    out = ""
+    if lang == "cpp" || lang == "csharp" || lang == "java" || lang == "kotlin" || lang == "swift" {
+        if lang == "cpp" { out = string.concat(string.concat("enum class ", enum_name), " {\n") }
+        if lang == "csharp" { out = string.concat(string.concat("public enum ", enum_name), " {\n") }
+        if lang == "java" { out = string.concat(string.concat("public enum ", enum_name), " {\n") }
+        if lang == "kotlin" { out = string.concat(string.concat("enum class ", enum_name), " {\n") }
+        if lang == "swift" { out = string.concat(string.concat("public enum ", enum_name), " {\n") }
+        n = json.array_size(members)
+        i = 0
+        while i < n {
+            m, err = json.array_get(members, i)
+            if err != "" { fail(err) }
+            name = must_string(m, "name")
+            out = string.concat(out, "  ")
+            if lang == "swift" { out = string.concat(out, "case ") }
+            out = string.concat(out, name)
+            if i + 1 < n { out = string.concat(out, ",") }
+            out = string.concat(out, "\n")
+            i = i + 1
+        }
+        out = string.concat(out, "}\n")
+        return out
+    }
+    if lang == "rust" {
+        out = string.concat(string.concat("#[derive(Clone, Debug, PartialEq)]\npub enum ", enum_name), " {\n")
+    } else if lang == "go" {
+        out = string.concat(string.concat("type ", enum_name), " string\nconst (\n")
+    } else if lang == "dart" {
+        out = string.concat(string.concat("enum ", enum_name), " {\n")
+    } else if lang == "gleam" {
+        out = string.concat(string.concat("pub type ", enum_name), " {\n")
+    } else if lang == "zig" {
+        out = string.concat(string.concat("pub const ", enum_name), " = enum {\n")
+    } else if lang == "moonbit" {
+        out = string.concat(string.concat("pub(all) enum ", enum_name), " {\n")
+    }
+    n2 = json.array_size(members)
+    j = 0
+    while j < n2 {
+        m2, err2 = json.array_get(members, j)
+        if err2 != "" { fail(err2) }
+        name2 = must_string(m2, "name")
+        out = string.concat(out, "  ")
+        if lang == "go" {
+            out = string.concat(out, name2)
+            out = string.concat(out, " ")
+            out = string.concat(out, enum_name)
+            out = string.concat(out, " = ")
+            out = string.concat(out, quote(name2))
+        } else {
+            out = string.concat(out, name2)
+            if lang == "rust" || lang == "zig" { out = string.concat(out, ",") }
+        }
+        out = string.concat(out, "\n")
+        j = j + 1
+    }
+    out = string.concat(out, "}\n")
+    return out
+}
+
+render_generic_constant(lang: string, name: string, value: ptr) -> string {
+    lit = render_ts_literal(value)
+    if lang == "go" { return string.concat(string.concat("const ", name), string.concat(" = ", string.concat(lit, "\n"))) }
+    if lang == "rust" { return string.concat(string.concat("pub const ", name), string.concat(": &str = ", string.concat(quote(lit), ";\n"))) }
+    if lang == "zig" { return string.concat(string.concat("pub const ", name), string.concat(" = ", string.concat(lit, ";\n"))) }
+    if lang == "moonbit" { return string.concat(string.concat("pub let ", name), string.concat(" = ", string.concat(lit, "\n"))) }
+    return string.concat(string.concat("const ", name), string.concat(" = ", string.concat(lit, ";\n")))
+}
+
+render_generic_method(lang: string, name: string, request: ptr, response: ptr) -> string {
+    req = render_lang_type(lang, request)
+    res = render_lang_type(lang, response)
+    if lang == "cpp" { return string.concat(string.concat(res, " "), string.concat(string.concat(name, string.concat("(" , string.concat(req, " request);"))), "\n")) }
+    if lang == "java" { return string.concat(string.concat("public static ", res), string.concat(string.concat(" ", name), string.concat(string.concat("(" , req), " request) { throw new UnsupportedOperationException(); }\n"))) }
+    if lang == "csharp" { return string.concat(string.concat("public static ", res), string.concat(string.concat(" ", name), string.concat(string.concat("(" , req), " request) => throw new NotImplementedException();\n"))) }
+    if lang == "kotlin" { return string.concat(string.concat("fun ", name), string.concat(string.concat("(request: ", req), string.concat(string.concat("): ", res), " = TODO()\n"))) }
+    if lang == "rust" { return string.concat(string.concat("pub fn ", lower_name(name)), string.concat(string.concat("(request: ", req), string.concat(string.concat(") -> ", res), " { unimplemented!() }\n"))) }
+    if lang == "go" { return string.concat(string.concat("func ", name), string.concat(string.concat("(request ", req), string.concat(string.concat(") ", res), " { panic(\"not implemented\") }\n"))) }
+    if lang == "dart" { return string.concat(string.concat(res, " "), string.concat(string.concat(name, string.concat("(" , req)), " request) => throw UnimplementedError();\n")) }
+    if lang == "swift" { return string.concat(string.concat("public func ", name), string.concat(string.concat("(request: ", req), string.concat(string.concat(") -> ", res), " { fatalError(\"Not implemented\") }\n"))) }
+    if lang == "gleam" { return string.concat(string.concat("pub fn ", lower_name(name)), string.concat(string.concat("(request: ", req), string.concat(string.concat(") -> ", res), " { panic as \"not implemented\" }\n"))) }
+    if lang == "zig" { return string.concat(string.concat("pub fn ", name), string.concat(string.concat("(request: ", req), string.concat(string.concat(") ", res), " { unreachable; }\n"))) }
+    if lang == "moonbit" { return string.concat(string.concat("pub fn ", name), string.concat(string.concat("(request: ", req), string.concat(string.concat(") -> ", res), " { abort(\"not implemented\") }\n"))) }
+    return ""
+}
+
+render_generic_module(lang: string, decls: ptr) -> string {
+    out = "// Generated by skir; do not edit.\n"
+    if lang == "cpp" { out = "#pragma once\n#include <cstdint>\n#include <optional>\n#include <string>\n#include <vector>\n#include <map>\n\n" }
+    if lang == "java" { out = "package skir.bindings;\n\n" }
+    if lang == "csharp" { out = "using System;\nusing System.Collections.Generic;\n\nnamespace Skir.Bindings;\n\n" }
+    if lang == "go" { out = "package skirbindings\n\n" }
+    if lang == "rust" { out = "// Generated by skir; do not edit.\n\n" }
+    if lang == "swift" { out = "import Foundation\n\n" }
+    if lang == "zig" { out = "const std = @import(\"std\");\n\n" }
+    n = json.array_size(decls)
+    i = 0
+    while i < n {
+        decl, err = json.array_get(decls, i)
+        if err != "" { fail(err) }
+        kind = must_string(decl, "kind")
+        if kind == "struct" {
+            out = string.concat(out, render_generic_struct(lang, must_string(decl, "name"), must_ptr(decl, "fields")))
+        } else if kind == "enum" {
+            out = string.concat(out, render_generic_enum(lang, must_string(decl, "name"), must_ptr(decl, "members")))
+        } else if kind == "constant" {
+            out = string.concat(out, render_generic_constant(lang, must_string(decl, "name"), must_ptr(decl, "value")))
+        } else if kind == "method" {
+            out = string.concat(out, render_generic_method(lang, must_string(decl, "name"), must_ptr(decl, "request"), must_ptr(decl, "response")))
+        }
+        out = string.concat(out, "\n")
+        i = i + 1
+    }
+    return out
+}
+
+lang_extension(lang: string) -> string {
+    if lang == "cpp" { return ".hpp" }
+    if lang == "java" { return ".java" }
+    if lang == "csharp" { return ".cs" }
+    if lang == "kotlin" { return ".kt" }
+    if lang == "rust" { return ".rs" }
+    if lang == "go" { return ".go" }
+    if lang == "dart" { return ".dart" }
+    if lang == "swift" { return ".swift" }
+    if lang == "gleam" { return ".gleam" }
+    if lang == "zig" { return ".zig" }
+    if lang == "moonbit" { return ".mbt" }
+    return ".txt"
+}
+
+lang_from_text(text: string) -> string {
+    if string.contains(text, "typescript") == 1 { return "typescript" }
+    if string.contains(text, "python") == 1 { return "python" }
+    if string.contains(text, "csharp") == 1 { return "csharp" }
+    if string.contains(text, "cpp") == 1 { return "cpp" }
+    if string.contains(text, "java") == 1 { return "java" }
+    if string.contains(text, "kotlin") == 1 { return "kotlin" }
+    if string.contains(text, "rust") == 1 { return "rust" }
+    if string.contains(text, "go") == 1 { return "go" }
+    if string.contains(text, "dart") == 1 { return "dart" }
+    if string.contains(text, "swift") == 1 { return "swift" }
+    if string.contains(text, "gleam") == 1 { return "gleam" }
+    if string.contains(text, "zig") == 1 { return "zig" }
+    if string.contains(text, "moonbit") == 1 { return "moonbit" }
+    return ""
+}
+
+write_generic_outputs(lang: string, out_dir: string, modules: ptr) {
+    nmods = json.array_size(modules)
+    i = 0
+    while i < nmods {
+        mod, err = json.array_get(modules, i)
+        if err != "" { fail(err) }
+        path = must_string(mod, "path")
+        decls = must_ptr(mod, "declarations")
+        stem = module_stem(path)
+        ext = lang_extension(lang)
+        mod_file = path_join(out_dir, string.concat(stem, ext))
+        write_err = fs.write(mod_file, render_generic_module(lang, decls))
+        if write_err != "" { fail(write_err) }
+        i = i + 1
+    }
+}
+
 render_ts_root(modules: ptr) -> string {
     out = "// Generated by skir; do not edit.\n"
     n = json.array_size(modules)
@@ -618,19 +1011,17 @@ main() {
 
     ir_path = aether_args_get(1)
     out_dir = aether_args_get(2)
-    lang = "typescript"
-    if string.contains(out_dir, "python") == 1 {
-        lang = "python"
-    } else if string.contains(out_dir, "typescript") == 1 {
-        lang = "typescript"
-    } else if argc >= 4 {
+    lang = lang_from_text(out_dir)
+    if lang == "" && argc >= 4 {
         lang = aether_args_get(3)
-    } else {
+    }
+    if lang == "" {
         argv0 = os.argv0()
         base = path_basename(argv0)
-        if string.contains(base, "python") == 1 {
-            lang = "python"
-        }
+        lang = lang_from_text(base)
+    }
+    if lang == "" {
+        lang = "typescript"
     }
     text, read_err = fs.read(ir_path)
     if read_err != "" {
@@ -673,7 +1064,7 @@ main() {
             if write_err3 != "" { fail(write_err3) }
             i = i + 1
         }
-    } else {
+    } else if lang == "python" {
         pkg_dir = path_join(out_dir, "skir")
         mk_err = fs.mkdir_p(pkg_dir)
         if mk_err != "" { fail(mk_err) }
@@ -698,6 +1089,8 @@ main() {
         pyproject = path_join(out_dir, "pyproject.toml")
         write_err5 = fs.write(pyproject, render_pyproject())
         if write_err5 != "" { fail(write_err5) }
+    } else {
+        write_generic_outputs(lang, out_dir, modules)
     }
 
     json.free(root)

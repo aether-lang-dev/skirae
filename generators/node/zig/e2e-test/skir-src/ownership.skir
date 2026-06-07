@@ -1,5 +1,0 @@
-struct Foo {
-  bars: [[Bar?]];
-}
-
-struct Bar {}

@@ -1,9 +1,0 @@
-.DS_Store
-.gradle
-.idea
-build
-dist
-node_modules
-skir-external
-skirout
-tsconfig.tsbuildinfo

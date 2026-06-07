@@ -222,9 +222,19 @@ run_generator_command(command: string, ir_path: string, out_dir: string) -> int 
     list.add(argv, ir_path)
     list.add(argv, out_dir)
     lang = "typescript"
-    if string.contains(command, "python") == 1 {
-        lang = "python"
-    }
+    if string.contains(command, "typescript") == 1 { lang = "typescript" }
+    if string.contains(command, "python") == 1 { lang = "python" }
+    if string.contains(command, "cpp") == 1 { lang = "cpp" }
+    if string.contains(command, "csharp") == 1 { lang = "csharp" }
+    if string.contains(command, "java") == 1 { lang = "java" }
+    if string.contains(command, "kotlin") == 1 { lang = "kotlin" }
+    if string.contains(command, "rust") == 1 { lang = "rust" }
+    if string.contains(command, "go") == 1 { lang = "go" }
+    if string.contains(command, "dart") == 1 { lang = "dart" }
+    if string.contains(command, "swift") == 1 { lang = "swift" }
+    if string.contains(command, "gleam") == 1 { lang = "gleam" }
+    if string.contains(command, "zig") == 1 { lang = "zig" }
+    if string.contains(command, "moonbit") == 1 { lang = "moonbit" }
     list.add(argv, lang)
     stdout, exit_code, spawn_err = os.run_capture(command, argv, null)
     list.free(argv)
