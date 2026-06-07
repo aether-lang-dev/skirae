@@ -1,0 +1,11 @@
+import build
+import aether
+import aether (source)
+
+main() {
+    b = build.start()
+
+    aether.program_test(b) {
+        source("tests/pre_commit.ae")
+    }
+}
