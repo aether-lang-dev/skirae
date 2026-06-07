@@ -2,5 +2,6 @@
 /playground/
 dist
 build
+target
 node_modules
 *.tsbuildinfo

@@ -2,7 +2,8 @@
 
 Skir's executable core now lives in `aether/skir.ae`. The command wrapper at
 `bin/skir` builds it with `ae build` and runs the native binary from
-`build/skir-ae`.
+`build/skir-ae`. The repo build target is `.build.ae` for aeb; there is no root
+npm package.
 
 Current native surface:
 
@@ -41,6 +42,10 @@ When `command` is present, Skir runs it as:
 That is the replacement for the old npm-module generator import path. Per-target
 generators can be native Aether binaries and do not need to link to or import
 the Skir core.
+
+Language-specific package metadata belongs to the binding generator output. For
+example, a TypeScript generator may emit `package.json` under its own `outDir`,
+but Skir itself does not use npm as build or runtime infrastructure.
 
 The port intentionally uses `skir.json` for the new config path. Aether does not
 currently ship a YAML parser, and reintroducing Node only to parse `skir.yml`

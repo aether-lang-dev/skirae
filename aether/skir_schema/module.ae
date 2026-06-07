@@ -1,0 +1,98 @@
+import std.fs
+import std.list
+import std.string
+
+exports (
+    document, structure, enumeration, field, variant, constant, method
+)
+
+_line(s: string) -> string {
+    return string.concat(s, "\n")
+}
+
+_append(ctx: ptr, text: string) {
+    if ctx != null {
+        list.add(ctx, text)
+    }
+}
+
+_render_list(items: ptr) -> string {
+    out = ""
+    if items == null {
+        return out
+    }
+    n = list.size(items)
+    i = 0
+    while i < n {
+        item, _ = list.get(items, i)
+        out = string.concat(out, item)
+        i = i + 1
+    }
+    return out
+}
+
+field(_ctx: ptr, name: string, type_name: string) {
+    line = string.concat("  ", name)
+    line = string.concat(line, ": ")
+    line = string.concat(line, type_name)
+    line = string.concat(line, ";\n")
+    _append(_ctx, line)
+}
+
+variant(_ctx: ptr, name: string) {
+    line = string.concat("  ", name)
+    line = string.concat(line, ";\n")
+    _append(_ctx, line)
+}
+
+builder structure(name: string) with list_new {
+    parent = builder_context()
+    body = _render_list(_builder)
+    out = string.concat("struct ", name)
+    out = string.concat(out, " {\n")
+    out = string.concat(out, body)
+    out = string.concat(out, "}\n\n")
+    _append(parent, out)
+}
+
+builder enumeration(name: string) with list_new {
+    parent = builder_context()
+    body = _render_list(_builder)
+    out = string.concat("enum ", name)
+    out = string.concat(out, " {\n")
+    out = string.concat(out, body)
+    out = string.concat(out, "}\n\n")
+    _append(parent, out)
+}
+
+constant(_ctx: ptr, name: string, type_name: string, value: string) {
+    line = string.concat("const ", name)
+    line = string.concat(line, ": ")
+    line = string.concat(line, type_name)
+    line = string.concat(line, " = ")
+    line = string.concat(line, value)
+    line = string.concat(line, ";\n\n")
+    _append(_ctx, line)
+}
+
+method(_ctx: ptr, name: string, request_type: string, response_type: string,
+       number: int) {
+    line = string.concat("method ", name)
+    line = string.concat(line, "(")
+    line = string.concat(line, request_type)
+    line = string.concat(line, "): ")
+    line = string.concat(line, response_type)
+    line = string.concat(line, " = ")
+    line = string.concat(line, string.from_int(number))
+    line = string.concat(line, ";\n\n")
+    _append(_ctx, line)
+}
+
+builder document(path: string) with list_new {
+    text = _render_list(_builder)
+    err = fs.write(path, text)
+    if err != "" {
+        println(string.concat("skir schema write failed: ", path))
+        exit(1)
+    }
+}

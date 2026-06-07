@@ -1,0 +1,21 @@
+import skir_schema (document, structure, enumeration, field, variant,
+                    constant, method)
+
+main() {
+    document("/tmp/skir_schema_dsl_example.skir") {
+        structure("Point") {
+            field("x", "float32")
+            field("y", "float32")
+        }
+
+        enumeration("RobotAction") {
+            variant("wave")
+            field("say", "string")
+            field("move", "Point")
+        }
+
+        constant("GREET_ACTIONS", "[RobotAction]",
+                 "[\"wave\", { kind: \"say\", value: \"Hi!\" }]")
+        method("PerformAction", "RobotAction", "bool", 12345)
+    }
+}

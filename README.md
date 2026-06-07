@@ -18,7 +18,8 @@ bin/skir version
 ```
 
 `bin/skir` builds `aether/skir.ae` with `ae build` on demand and runs the
-resulting native binary from `build/skir-ae`.
+resulting native binary from `build/skir-ae`. The main repo build target is
+`.build.ae`, for aeb.
 
 ## Project Layout
 
@@ -61,8 +62,38 @@ When `command` is present, Skir runs:
 That keeps the core native and lets each target-language generator evolve as a
 separate executable.
 
+## Schema DSL
+
+The `skir_schema` Aether module can generate `.skir` documents directly:
+
+```aether
+import skir_schema as skir
+
+main() {
+    skir.document("robot.skir") {
+        structure("Point") {
+            field("x", "float32")
+            field("y", "float32")
+        }
+
+        enumeration("RobotAction") {
+            variant("wave")
+            field("say", "string")
+            field("move", "Point")
+        }
+    }
+}
+```
+
+This is an Aether builder-DSL grammar for Skir schemas. It is close to the
+target shape: declarative enough to read as schema, but still native Aether code
+with conditionals, loops, and helper functions available when schema generation
+needs them.
+
 ## Status
 
-The native CLI surface exists and no TypeScript implementation remains in this
-repo. Full target-language binding generation now belongs behind the external
-generator command contract described above.
+The native CLI surface exists and no TypeScript implementation or root npm
+package remains in this repo. Full target-language binding generation now
+belongs behind the external generator command contract described above; a
+language binding generator may create `package.json`, `pyproject.toml`, or other
+target-specific package metadata inside its own output.
