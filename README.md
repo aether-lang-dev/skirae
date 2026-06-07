@@ -1,11 +1,42 @@
 # Skir
 
-Skir is a schema-language experiment for generating language bindings from
-`.skir` files.
+Skir began as Tyler Fibonacci's TypeScript implementation of a compact schema
+language for generating strongly typed bindings. This repository keeps the
+original ISC license and gives credit to that work; the current branch is a
+speculative native-Aether rewrite meant to showcase Aether itself.
 
-This branch is a speculative native port: the core CLI is implemented in
-Aether, not TypeScript, and the old npm-module generator import path has been
-removed.
+This is not a donation back to the original Skir project. It is a local
+experiment in replacing the Node/TypeScript core with:
+
+- Aether for the CLI and schema authoring DSL.
+- aeb for build and test targets.
+- Aeocha for BDD-style tests.
+- External generator binaries for language-specific bindings.
+
+## Achievements
+
+The port has changed the shape of the project substantially:
+
+- **No root npm package**: `package.json` and `package-lock.json` are gone.
+  Package metadata now belongs to generated language bindings, not to Skir's
+  own build.
+- **No TypeScript core**: the previous `src/*.ts` implementation and tests were
+  removed. The old tree had 44 TypeScript files and about 21.5k TypeScript
+  source lines.
+- **No npm dependency graph**: the pre-port lockfile was about 3,174 lines and
+  pulled runtime packages such as `glob`, `yaml`, `zod`, `watcher`,
+  `skir-internal`, and the `skir-*-gen` packages, plus TypeScript/Mocha/ESLint
+  dev tooling. The native repo has no npm install step.
+- **Native CLI**: `bin/skir` builds and runs `aether/skir.ae`. The current
+  native binary is about 112 KiB locally.
+- **Aether schema DSL**: `skir_schema` builds schema IR directly. `.skir` is no
+  longer the intended intermediate for this showcase path.
+- **aeb-native build/test targets**: `.build.ae` builds the CLI and `.tests.ae`
+  runs Aeocha tests.
+
+Local rough timing, not a benchmark: after the binary already exists,
+`bin/skir version` runs in about 5-6 ms on this machine. A first wrapper run that
+has to rebuild the binary took about 0.54s.
 
 ## Commands
 
@@ -17,20 +48,49 @@ bin/skir snapshot
 bin/skir version
 ```
 
-`bin/skir` builds `aether/skir.ae` with `ae build` on demand and runs the
-resulting native binary from `build/skir-ae`. The main repo build target is
-`.build.ae`, for aeb.
+`bin/skir` builds `aether/skir.ae` with `ae build` on demand and runs
+`build/skir-ae`.
+
+## Build And Test
+
+```sh
+/home/paul/scm/aeb/aeb .build.ae
+/home/paul/scm/aeb/aeb .tests.ae
+```
+
+The test target compiles and runs `tests/skir_aeocha.ae`, which exercises the
+schema DSL and the native CLI smoke path.
+
+## Schema DSL
+
+Schemas are Aether programs. A minimal schema program looks like this:
+
+```aether
+import skir_schema (document, structure, field, string_type)
+
+main() {
+    document("skirout/skir-ir.json") {
+        structure("Greeting") {
+            field("message", string_type())
+        }
+    }
+}
+```
+
+The DSL emits schema IR JSON directly. That makes Aether the authoring language
+for schemas, not a generator of `.skir` text. The benefit is that schemas can
+still read declaratively while using normal Aether helpers, conditionals, loops,
+and module imports when useful.
 
 ## Project Layout
 
 ```text
 skir.json
 skir-src/
-  example.skir
+  hello_world.ae
 ```
 
-`skir gen` scans `skir-src/**/*.skir`, validates tokenization and delimiter
-balance, and writes a generator-neutral IR file:
+`skir gen` runs schema programs under `skir-src/**/*.ae` and writes:
 
 ```text
 <outDir>/skir-ir.json
@@ -60,51 +120,12 @@ When `command` is present, Skir runs:
 ```
 
 That keeps the core native and lets each target-language generator evolve as a
-separate executable.
-
-## Schema DSL
-
-The `skir_schema` Aether module can generate `.skir` documents directly:
-
-```aether
-import skir_schema as skir
-
-main() {
-    skir.document("robot.skir") {
-        structure("Point") {
-            field("x", "float32")
-            field("y", "float32")
-        }
-
-        enumeration("RobotAction") {
-            variant("wave")
-            field("say", "string")
-            field("move", "Point")
-        }
-    }
-}
-```
-
-This is an Aether builder-DSL grammar for Skir schemas. It is close to the
-target shape: declarative enough to read as schema, but still native Aether code
-with conditionals, loops, and helper functions available when schema generation
-needs them.
-
-## Tests
-
-Tests are Aeocha BDD tests under `tests/`, run as an aeb target:
-
-```sh
-/home/paul/scm/aeb/aeb .tests.ae
-```
-
-The current test target compiles `tests/skir_aeocha.ae`, which exercises the
-schema DSL and the native CLI smoke path.
+separate executable. A TypeScript generator may emit its own `package.json`
+inside its output directory; Skir itself does not need npm.
 
 ## Status
 
-The native CLI surface exists and no TypeScript implementation or root npm
-package remains in this repo. Full target-language binding generation now
-belongs behind the external generator command contract described above; a
-language binding generator may create `package.json`, `pyproject.toml`, or other
-target-specific package metadata inside its own output.
+This is speculative and intentionally incomplete. The current goal is to show a
+coherent Aether-native toolchain shape: Aether CLI, Aether schema DSL, aeb
+targets, Aeocha tests, no Node runtime dependency, and no `.skir` text
+intermediate on the main path.

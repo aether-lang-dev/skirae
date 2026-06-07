@@ -1,21 +1,22 @@
 import skir_schema (document, structure, enumeration, field, variant,
-                    constant, method)
+                    constant, method, string_type, float32_type, array_type,
+                    ref_type)
 
 main() {
-    document("/tmp/skir_schema_dsl_example.skir") {
+    document("/tmp/skir_schema_dsl_example.json") {
         structure("Point") {
-            field("x", "float32")
-            field("y", "float32")
+            field("x", float32_type())
+            field("y", float32_type())
         }
 
         enumeration("RobotAction") {
             variant("wave")
-            field("say", "string")
-            field("move", "Point")
+            field("say", string_type())
+            field("move", ref_type("Point"))
         }
 
-        constant("GREET_ACTIONS", "[RobotAction]",
-                 "[\"wave\", { kind: \"say\", value: \"Hi!\" }]")
+        constant("GREET_ACTIONS", array_type(ref_type("RobotAction")),
+                 "[\"wave\",{\"kind\":\"say\",\"value\":\"Hi!\"}]")
         method("PerformAction", "RobotAction", "bool", 12345)
     }
 }

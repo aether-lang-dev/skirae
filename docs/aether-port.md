@@ -13,9 +13,26 @@ Current native surface:
 - `skir snapshot`
 - `skir version`
 
-`gen` scans `skir-src/**/*.skir`, validates tokenization and delimiter balance,
-and writes `skirout/skir-ir.json`. That JSON is the native generator contract:
-future language generators should consume this IR rather than importing the old
+`gen` scans `skir-src/**/*.ae`, builds each Aether schema DSL program, and uses
+the emitted `skirout/skir-ir.json` as the native generator contract. This path
+does not generate or parse `.skir` text as an intermediate; schemas are Aether
+programs that use `skir_schema` builder calls to produce IR directly.
+
+A minimal schema source looks like this:
+
+```aether
+import skir_schema (document, structure, field, string_type)
+
+main() {
+    document("skirout/skir-ir.json") {
+        structure("Greeting") {
+            field("message", string_type())
+        }
+    }
+}
+```
+
+Future language generators should consume the IR rather than importing the old
 TypeScript parser.
 
 Generator config is JSON:
