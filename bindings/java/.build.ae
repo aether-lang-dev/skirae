@@ -4,6 +4,7 @@ import binding_build
 import java
 import java (release)
 import std.map
+import std.os
 
 main() {
     b = build.start()
@@ -12,9 +13,13 @@ main() {
 
     project = binding_build.prepare_project(b, "java")
     if project == "" { return 1 }
+    smoke = "package skir.bindings;\n\nclass Smoke {\n  public static void main(String[] args) {\n    Greeting greeting = new Greeting(\"Hello\");\n    System.out.println(\"java Greeting.message=\" + greeting.message());\n  }\n}\n"
+    if binding_build.write_text(b, "${project}/Smoke.java", smoke) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
-    java.javac(b) {
+    rc = java.javac(b) {
         release("17")
     }
+    if rc != 0 { return rc }
+    return os.system("java -cp '${build.target_dir(b)}/classes' skir.bindings.Smoke")
 }

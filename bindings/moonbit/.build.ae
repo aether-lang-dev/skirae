@@ -19,9 +19,13 @@ main() {
     src_dir = path.join(project, "src")
     if binding_build.write_text(b, path.join(src_dir, "moon.pkg.json"), pkg_json) != 0 { return 1 }
     _copy = os.system("cp '${project}/schema.mbt' '${src_dir}/schema.mbt'")
+    smoke = "fn main {\n  let greeting = Greeting::{ message: \"Hello\" }\n  println(\"moonbit Greeting.message=\\{greeting.message}\")\n}\n"
+    if binding_build.write_text(b, path.join(src_dir, "main.mbt"), smoke) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
     rc = moonbit.install(b)
     if rc != 0 { return rc }
-    return moonbit.check(b)
+    check_rc = moonbit.check(b)
+    if check_rc != 0 { return check_rc }
+    return os.system("cd '${project}' && moon run src")
 }

@@ -4,6 +4,7 @@ import binding_build
 import cpp
 import cpp (source, include, std)
 import std.map
+import std.os
 import std.path
 
 main() {
@@ -13,13 +14,15 @@ main() {
 
     project = binding_build.prepare_project(b, "cpp")
     if project == "" { return 1 }
-    main_cpp = "#include \"schema.hpp\"\n\nint main() {\n    Greeting greeting{\"hello\"};\n    return greeting.message.empty() ? 1 : 0;\n}\n"
+    main_cpp = "#include <iostream>\n#include \"schema.hpp\"\n\nint main() {\n    Greeting greeting{\"Hello\"};\n    std::cout << \"cpp Greeting.message=\" << greeting.message << \"\\n\";\n    return greeting.message.empty() ? 1 : 0;\n}\n"
     if binding_build.write_text(b, path.join(project, "main.cpp"), main_cpp) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
-    cpp.program(b) {
+    rc = cpp.program(b) {
         source("main.cpp")
         include(".")
         std("c++17")
     }
+    if rc != 0 { return rc }
+    return os.system("'${build.target_dir(b)}/cpp'")
 }

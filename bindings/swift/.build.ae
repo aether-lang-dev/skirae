@@ -13,14 +13,19 @@ main() {
 
     project = binding_build.prepare_project(b, "swift")
     if project == "" { return 1 }
-    package = "// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: \"SkirBindingsSmoke\",\n    products: [.library(name: \"SkirBindingsSmoke\", targets: [\"SkirBindingsSmoke\"])],\n    targets: [.target(name: \"SkirBindingsSmoke\")]\n)\n"
+    package = "// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: \"SkirBindingsSmoke\",\n    products: [\n        .library(name: \"SkirBindingsSmoke\", targets: [\"SkirBindingsSmoke\"]),\n        .executable(name: \"Smoke\", targets: [\"Smoke\"])\n    ],\n    targets: [\n        .target(name: \"SkirBindingsSmoke\"),\n        .executableTarget(name: \"Smoke\", dependencies: [\"SkirBindingsSmoke\"])\n    ]\n)\n"
     if binding_build.write_text(b, path.join(project, "Package.swift"), package) != 0 { return 1 }
     src_dir = path.join(path.join(project, "Sources"), "SkirBindingsSmoke")
     if binding_build.write_text(b, path.join(src_dir, ".keep"), "") != 0 { return 1 }
     _copy = os.system("cp '${project}/schema.swift' '${src_dir}/schema.swift'")
+    exe_dir = path.join(path.join(project, "Sources"), "Smoke")
+    main_swift = "import SkirBindingsSmoke\n\nlet greeting = Greeting(message: \"Hello\")\nprint(\"swift Greeting.message=\\(greeting.message)\")\n"
+    if binding_build.write_text(b, path.join(exe_dir, "main.swift"), main_swift) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
     rc = swift.resolve(b)
     if rc != 0 { return rc }
-    return swift.build_pkg(b)
+    build_rc = swift.build_pkg(b)
+    if build_rc != 0 { return build_rc }
+    return os.system("cd '${project}' && swift run Smoke")
 }

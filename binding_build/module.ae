@@ -4,8 +4,6 @@ import std.os
 import std.path
 import std.string
 
-const FIXTURE_IR = "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[{\"path\":\"schema.ae\",\"declarations\":[{\"kind\":\"struct\",\"name\":\"Greeting\",\"fields\":[{\"name\":\"message\",\"type\":{\"kind\":\"primitive\",\"name\":\"string\"}}]}]}]}"
-
 prepare_project(ctx: ptr, lang: string) -> string {
     root = build.root(ctx)
     target = build.target_dir(ctx)
@@ -18,9 +16,17 @@ prepare_project(ctx: ptr, lang: string) -> string {
     }
 
     ir_path = path.join(target, "skir-ir.json")
-    ir_err = fs.write(ir_path, FIXTURE_IR)
-    if ir_err != "" {
-        build.fail(ctx, string.concat("cannot write fixture IR: ", ir_path))
+    fixture_src = path.join(root, "fixtures/greet/schema.ae")
+    fixture_bin = path.join(target, "schema-fixture")
+    build_cmd = "ae build '${fixture_src}' --lib '${root}' -o '${fixture_bin}'"
+    build_rc = os.system(build_cmd)
+    if build_rc != 0 {
+        build.fail(ctx, "fixture schema build failed")
+        return ""
+    }
+    fixture_rc = os.system("'${fixture_bin}' '${ir_path}'")
+    if fixture_rc != 0 {
+        build.fail(ctx, "fixture schema run failed")
         return ""
     }
 

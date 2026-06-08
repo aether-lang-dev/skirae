@@ -13,10 +13,14 @@ main() {
 
     project = binding_build.prepare_project(b, "rust")
     if project == "" { return 1 }
-    cargo = "[package]\nname = \"skir-bindings-smoke\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\npath = \"src/lib.rs\"\n"
+    cargo = "[package]\nname = \"skir-bindings-smoke\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\npath = \"src/lib.rs\"\n\n[[bin]]\nname = \"skir-bindings-smoke\"\npath = \"src/main.rs\"\n"
     if binding_build.write_text(b, path.join(project, "Cargo.toml"), cargo) != 0 { return 1 }
     if binding_build.write_text(b, path.join(path.join(project, "src"), "lib.rs"), "include!(\"../schema.rs\");\n") != 0 { return 1 }
+    main_rs = "mod schema { include!(\"../schema.rs\"); }\n\nfn main() {\n    let greeting = schema::Greeting { message: \"Hello\".to_string() };\n    println!(\"rust Greeting.message={}\", greeting.message);\n}\n"
+    if binding_build.write_text(b, path.join(path.join(project, "src"), "main.rs"), main_rs) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
-    return rust.cargo_project_existing(b)
+    rc = rust.cargo_project_existing(b)
+    if rc != 0 { return rc }
+    return os.system("'${build.target_dir(b)}/lib/release/skir-bindings-smoke'")
 }

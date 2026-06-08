@@ -4,6 +4,7 @@ import binding_build
 import dotnet
 import dotnet (csproj_path)
 import std.map
+import std.os
 import std.path
 
 main() {
@@ -13,11 +14,15 @@ main() {
 
     project = binding_build.prepare_project(b, "csharp")
     if project == "" { return 1 }
-    csproj = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n"
+    program = "using Skir.Bindings;\n\nvar greeting = new Greeting(\"Hello\");\nConsole.WriteLine($\"csharp Greeting.message={greeting.message}\");\n"
+    if binding_build.write_text(b, path.join(project, "Program.cs"), program) != 0 { return 1 }
+    csproj = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n"
     if binding_build.write_text(b, path.join(project, "Skir.Bindings.csproj"), csproj) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
-    dotnet.build_project_existing(b) {
+    rc = dotnet.build_project_existing(b) {
         csproj_path("Skir.Bindings.csproj")
     }
+    if rc != 0 { return rc }
+    return os.system("cd '${project}' && dotnet run --project Skir.Bindings.csproj")
 }

@@ -12,11 +12,15 @@ main() {
 
     project = binding_build.prepare_project(b, "dart")
     if project == "" { return 1 }
+    smoke = "import 'schema.dart';\n\nvoid main() {\n  final greeting = Greeting('Hello');\n  print('dart Greeting.message=' + greeting.message);\n}\n"
+    if binding_build.write_text(b, path.join(project, "smoke.dart"), smoke) != 0 { return 1 }
     pubspec = "name: skir_bindings_smoke\ndescription: Generated Skir binding smoke project.\nversion: 0.1.0\nenvironment:\n  sdk: '>=3.0.0 <4.0.0'\n"
     if binding_build.write_text(b, path.join(project, "pubspec.yaml"), pubspec) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
     rc = dart.pub_get(b)
     if rc != 0 { return rc }
-    return dart.analyze(b)
+    analyze_rc = dart.analyze(b)
+    if analyze_rc != 0 { return analyze_rc }
+    return os.system("cd '${project}' && dart run smoke.dart")
 }

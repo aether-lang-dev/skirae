@@ -18,9 +18,13 @@ main() {
     src_dir = path.join(project, "src")
     if binding_build.write_text(b, path.join(src_dir, ".keep"), "") != 0 { return 1 }
     _copy = os.system("cp '${project}/schema.gleam' '${src_dir}/schema.gleam'")
+    smoke = "import gleam/io\nimport schema\n\npub fn main() {\n  let greeting = schema.Greeting(message: \"Hello\")\n  io.println(\"gleam Greeting.message=\" <> greeting.message)\n}\n"
+    if binding_build.write_text(b, path.join(src_dir, "smoke.gleam"), smoke) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
     rc = gleam.deps(b)
     if rc != 0 { return rc }
-    return gleam.build(b)
+    build_rc = gleam.build(b)
+    if build_rc != 0 { return build_rc }
+    return os.system("cd '${project}' && gleam run -m smoke")
 }

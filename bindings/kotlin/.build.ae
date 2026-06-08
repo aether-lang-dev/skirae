@@ -4,6 +4,7 @@ import binding_build
 import kotlin
 import kotlin (jvm_target)
 import std.map
+import std.os
 
 main() {
     b = build.start()
@@ -12,9 +13,13 @@ main() {
 
     project = binding_build.prepare_project(b, "kotlin")
     if project == "" { return 1 }
+    smoke = "fun main() {\n  val greeting = Greeting(\"Hello\")\n  println(\"kotlin Greeting.message=\" + greeting.message)\n}\n"
+    if binding_build.write_text(b, "${project}/smoke.kt", smoke) != 0 { return 1 }
 
     _src = map.put(b, "source_dir", project)
-    kotlin.kotlinc(b) {
+    rc = kotlin.kotlinc(b) {
         jvm_target("11")
     }
+    if rc != 0 { return rc }
+    return os.system("kotlin -cp '${build.target_dir(b)}/classes' SmokeKt")
 }

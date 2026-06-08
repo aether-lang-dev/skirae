@@ -30,6 +30,14 @@ expect_aeb_target(fw: ptr, target: string) {
     aeocha.expect_exit(fw, code, 0, string.concat(target, " build exits zero"))
 }
 
+expect_binding_smoke(fw: ptr, target: string, log_name: string, line: string) {
+    expect_aeb_target(fw, target)
+    log_path = string.concat("/home/paul/scm/skir/target/.aeb/logs/", log_name)
+    log_text, log_err = fs.read(log_path)
+    aeocha.assert_str_eq(fw, log_err, "", string.concat(target, " log read"))
+    aeocha.assert_contains(fw, log_text, line, string.concat(target, " smoke stdout"))
+}
+
 main() {
     fw = aeocha.init()
 
@@ -164,6 +172,27 @@ main() {
                 moonbit_text, moonbit_err = fs.read("${root}/bindings/moonbit/schema.mbt")
                 aeocha.assert_str_eq(fw, moonbit_err, "", "MoonBit output read")
                 aeocha.assert_contains(fw, moonbit_text, "struct Greeting", "moonbit struct")
+            }
+
+            aeocha.it("builds generated binding smoke leaves with stdout checks") callback {
+                expect_binding_smoke(fw, "bindings/typescript/.build.ae",
+                                     "bindings_typescript.log",
+                                     "typescript Greeting.message=Hello")
+                expect_binding_smoke(fw, "bindings/python/.build.ae",
+                                     "bindings_python.log",
+                                     "python Greeting.message=Hello")
+                expect_binding_smoke(fw, "bindings/cpp/.build.ae",
+                                     "bindings_cpp.log",
+                                     "cpp Greeting.message=Hello")
+                expect_binding_smoke(fw, "bindings/java/.build.ae",
+                                     "bindings_java.log",
+                                     "java Greeting.message=Hello")
+                expect_binding_smoke(fw, "bindings/rust/.build.ae",
+                                     "bindings_rust.log",
+                                     "rust Greeting.message=Hello")
+                expect_binding_smoke(fw, "bindings/go/.build.ae",
+                                     "bindings_go.log",
+                                     "go Greeting.message=Hello")
             }
         }
     }
