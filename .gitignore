@@ -3,6 +3,7 @@
 dist
 build
 target
+.aeb/
 node_modules
 *.tsbuildinfo
 genrs/

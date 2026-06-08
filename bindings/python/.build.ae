@@ -1,0 +1,22 @@
+import build
+import build (dep)
+import binding_build
+import python
+import std.map
+import std.os
+import std.path
+
+main() {
+    b = build.start()
+    dep(b, "aether/.build.ae")
+    dep(b, "generators/python/.build.ae")
+
+    project = binding_build.prepare_project(b, "python")
+    if project == "" { return 1 }
+
+    _src = map.put(b, "source_dir", project)
+    rc = python.install(b)
+    if rc != 0 { return rc }
+    py = path.join(path.join(project, "skir"), "schema.py")
+    return os.system("python3 -m py_compile '${py}'")
+}

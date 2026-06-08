@@ -1,0 +1,22 @@
+import build
+import build (dep)
+import binding_build
+import rust
+import std.map
+import std.os
+import std.path
+
+main() {
+    b = build.start()
+    dep(b, "aether/.build.ae")
+    dep(b, "generators/rust/.build.ae")
+
+    project = binding_build.prepare_project(b, "rust")
+    if project == "" { return 1 }
+    cargo = "[package]\nname = \"skir-bindings-smoke\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\npath = \"src/lib.rs\"\n"
+    if binding_build.write_text(b, path.join(project, "Cargo.toml"), cargo) != 0 { return 1 }
+    if binding_build.write_text(b, path.join(path.join(project, "src"), "lib.rs"), "include!(\"../schema.rs\");\n") != 0 { return 1 }
+
+    _src = map.put(b, "source_dir", project)
+    return rust.cargo_project_existing(b)
+}

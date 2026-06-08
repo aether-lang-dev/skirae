@@ -1,0 +1,26 @@
+import build
+import build (dep)
+import binding_build
+import std.map
+import std.path
+import ts
+import ts (strict, ts_target, module_kind, out_dir)
+
+main() {
+    b = build.start()
+    dep(b, "aether/.build.ae")
+    dep(b, "generators/typescript/.build.ae")
+
+    project = binding_build.prepare_project(b, "typescript")
+    if project == "" { return 1 }
+    tsconfig = "{\n  \"compilerOptions\": {\n    \"strict\": true,\n    \"target\": \"ES2020\",\n    \"module\": \"commonjs\",\n    \"declaration\": true\n  },\n  \"include\": [\"*.ts\"]\n}\n"
+    if binding_build.write_text(b, path.join(project, "tsconfig.json"), tsconfig) != 0 { return 1 }
+
+    _src = map.put(b, "source_dir", project)
+    ts.tsc_files(b) {
+        strict()
+        ts_target("ES2020")
+        module_kind("commonjs")
+        out_dir(path.join(build.target_dir(b), "js"))
+    }
+}

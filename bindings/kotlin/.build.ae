@@ -1,0 +1,20 @@
+import build
+import build (dep)
+import binding_build
+import kotlin
+import kotlin (jvm_target)
+import std.map
+
+main() {
+    b = build.start()
+    dep(b, "aether/.build.ae")
+    dep(b, "generators/kotlin/.build.ae")
+
+    project = binding_build.prepare_project(b, "kotlin")
+    if project == "" { return 1 }
+
+    _src = map.put(b, "source_dir", project)
+    kotlin.kotlinc(b) {
+        jvm_target("11")
+    }
+}

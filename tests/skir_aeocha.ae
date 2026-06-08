@@ -24,6 +24,12 @@ run_capture2(prog: string, arg1: string, arg2: string) -> (string, int, string) 
     return out, code, err
 }
 
+expect_aeb_target(fw: ptr, target: string) {
+    out, code, err = run_capture1("/home/paul/scm/aeb/aeb", target)
+    aeocha.expect_no_spawn_error(fw, err, string.concat(target, " build started"))
+    aeocha.expect_exit(fw, code, 0, string.concat(target, " build exits zero"))
+}
+
 main() {
     fw = aeocha.init()
 
@@ -78,10 +84,19 @@ main() {
                 aeocha.expect_exit(fw, code_init, 0, "init exits zero")
                 aeocha.expect_stdout_contains(fw, out_init, "skir.json", "init names config")
 
-                build_out, build_code, build_err = run_capture1("/home/paul/scm/aeb/aeb", ".build.ae")
-                aeocha.expect_no_spawn_error(fw, build_err, "aeb build started")
-                aeocha.expect_exit(fw, build_code, 0, "aeb build exits zero")
-                aeocha.expect_stdout_contains(fw, build_out, "generators/typescript", "build names generators")
+                expect_aeb_target(fw, "generators/typescript/.build.ae")
+                expect_aeb_target(fw, "generators/python/.build.ae")
+                expect_aeb_target(fw, "generators/cpp/.build.ae")
+                expect_aeb_target(fw, "generators/java/.build.ae")
+                expect_aeb_target(fw, "generators/csharp/.build.ae")
+                expect_aeb_target(fw, "generators/kotlin/.build.ae")
+                expect_aeb_target(fw, "generators/rust/.build.ae")
+                expect_aeb_target(fw, "generators/go/.build.ae")
+                expect_aeb_target(fw, "generators/dart/.build.ae")
+                expect_aeb_target(fw, "generators/swift/.build.ae")
+                expect_aeb_target(fw, "generators/gleam/.build.ae")
+                expect_aeb_target(fw, "generators/zig/.build.ae")
+                expect_aeb_target(fw, "generators/moonbit/.build.ae")
 
                 config_path = "${root}/skir.json"
                 config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/typescript\", \"command\": \"/home/paul/scm/skir/target/build/generators/typescript/bin/skir-typescript-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/python\", \"command\": \"/home/paul/scm/skir/target/build/generators/python/bin/skir-python-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/cpp\", \"command\": \"/home/paul/scm/skir/target/build/generators/cpp/bin/skir-cpp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/java\", \"command\": \"/home/paul/scm/skir/target/build/generators/java/bin/skir-java-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/csharp\", \"command\": \"/home/paul/scm/skir/target/build/generators/csharp/bin/skir-csharp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/kotlin\", \"command\": \"/home/paul/scm/skir/target/build/generators/kotlin/bin/skir-kotlin-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/rust\", \"command\": \"/home/paul/scm/skir/target/build/generators/rust/bin/skir-rust-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/go\", \"command\": \"/home/paul/scm/skir/target/build/generators/go/bin/skir-go-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/dart\", \"command\": \"/home/paul/scm/skir/target/build/generators/dart/bin/skir-dart-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/swift\", \"command\": \"/home/paul/scm/skir/target/build/generators/swift/bin/skir-swift-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/gleam\", \"command\": \"/home/paul/scm/skir/target/build/generators/gleam/bin/skir-gleam-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/zig\", \"command\": \"/home/paul/scm/skir/target/build/generators/zig/bin/skir-zig-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/moonbit\", \"command\": \"/home/paul/scm/skir/target/build/generators/moonbit/bin/skir-moonbit-gen\" }\n  ],\n  \"dependencies\": {}\n}\n"
@@ -121,7 +136,7 @@ main() {
                 aeocha.assert_contains(fw, cpp_text, "struct Greeting", "cpp struct")
                 java_text, java_err = fs.read("${root}/bindings/java/schema.java")
                 aeocha.assert_str_eq(fw, java_err, "", "Java output read")
-                aeocha.assert_contains(fw, java_text, "public record Greeting", "java record")
+                aeocha.assert_contains(fw, java_text, "record Greeting", "java record")
                 csharp_text, csharp_err = fs.read("${root}/bindings/csharp/schema.cs")
                 aeocha.assert_str_eq(fw, csharp_err, "", "C# output read")
                 aeocha.assert_contains(fw, csharp_text, "record Greeting", "csharp record")

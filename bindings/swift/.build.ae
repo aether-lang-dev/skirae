@@ -1,0 +1,26 @@
+import build
+import build (dep)
+import binding_build
+import std.map
+import std.os
+import std.path
+import swift
+
+main() {
+    b = build.start()
+    dep(b, "aether/.build.ae")
+    dep(b, "generators/swift/.build.ae")
+
+    project = binding_build.prepare_project(b, "swift")
+    if project == "" { return 1 }
+    package = "// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: \"SkirBindingsSmoke\",\n    products: [.library(name: \"SkirBindingsSmoke\", targets: [\"SkirBindingsSmoke\"])],\n    targets: [.target(name: \"SkirBindingsSmoke\")]\n)\n"
+    if binding_build.write_text(b, path.join(project, "Package.swift"), package) != 0 { return 1 }
+    src_dir = path.join(path.join(project, "Sources"), "SkirBindingsSmoke")
+    if binding_build.write_text(b, path.join(src_dir, ".keep"), "") != 0 { return 1 }
+    _copy = os.system("cp '${project}/schema.swift' '${src_dir}/schema.swift'")
+
+    _src = map.put(b, "source_dir", project)
+    rc = swift.resolve(b)
+    if rc != 0 { return rc }
+    return swift.build_pkg(b)
+}

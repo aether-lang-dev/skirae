@@ -1,0 +1,54 @@
+import build
+import std.fs
+import std.os
+import std.path
+import std.string
+
+const FIXTURE_IR = "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[{\"path\":\"schema.ae\",\"declarations\":[{\"kind\":\"struct\",\"name\":\"Greeting\",\"fields\":[{\"name\":\"message\",\"type\":{\"kind\":\"primitive\",\"name\":\"string\"}}]}]}]}"
+
+prepare_project(ctx: ptr, lang: string) -> string {
+    root = build.root(ctx)
+    target = build.target_dir(ctx)
+    project = path.join(target, "project")
+    _clean = os.system("rm -rf '${project}'")
+    mkdir_err = fs.mkdir_p(project)
+    if mkdir_err != "" {
+        build.fail(ctx, string.concat("cannot create generated project: ", project))
+        return ""
+    }
+
+    ir_path = path.join(target, "skir-ir.json")
+    ir_err = fs.write(ir_path, FIXTURE_IR)
+    if ir_err != "" {
+        build.fail(ctx, string.concat("cannot write fixture IR: ", ir_path))
+        return ""
+    }
+
+    bin_name = "skir-"
+    bin_name = string.concat(bin_name, lang)
+    bin_name = string.concat(bin_name, "-gen")
+    gen_dir = path.join(path.join(path.join(root, "target/build/generators"), lang), "bin")
+    gen = path.join(gen_dir, bin_name)
+    cmd = "'${gen}' '${ir_path}' '${project}' '${lang}'"
+    rc = os.system(cmd)
+    if rc != 0 {
+        build.fail(ctx, string.concat("generator failed for ", lang))
+        return ""
+    }
+    return project
+}
+
+write_text(ctx: ptr, path_str: string, body: string) -> int {
+    parent = path.dirname(path_str)
+    mkdir_err = fs.mkdir_p(parent)
+    if mkdir_err != "" {
+        build.fail(ctx, string.concat("cannot create directory: ", parent))
+        return 1
+    }
+    write_err = fs.write(path_str, body)
+    if write_err != "" {
+        build.fail(ctx, string.concat("cannot write file: ", path_str))
+        return 1
+    }
+    return 0
+}
