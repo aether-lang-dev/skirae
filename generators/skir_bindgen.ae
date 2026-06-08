@@ -708,7 +708,7 @@ render_generic_struct(lang: string, name: string, fields: ptr) -> string {
         out = string.concat(out, name)
         out = string.concat(out, " {\n")
     } else if lang == "java" {
-        out = string.concat(string.concat("public record ", name), "(\n")
+        out = string.concat(string.concat("record ", name), "(\n")
     } else if lang == "csharp" {
         out = string.concat(string.concat("public sealed record ", name), "(\n")
     } else if lang == "kotlin" {
@@ -746,15 +746,13 @@ render_generic_struct(lang: string, name: string, fields: ptr) -> string {
         } else if lang == "java" || lang == "csharp" || lang == "kotlin" || lang == "gleam" {
             out = string.concat(out, "  ")
             if lang == "kotlin" { out = string.concat(out, "val ") }
-            out = string.concat(out, fname)
-            if lang == "java" || lang == "csharp" {
-                out = string.concat(out, ": ")
-            } else {
-                out = string.concat(out, ": ")
-            }
             if lang == "java" || lang == "csharp" {
                 out = string.concat(out, ftype)
+                out = string.concat(out, " ")
+                out = string.concat(out, fname)
             } else {
+                out = string.concat(out, fname)
+                out = string.concat(out, ": ")
                 out = string.concat(out, ftype)
             }
             if i + 1 < n { out = string.concat(out, ",") }
@@ -773,13 +771,22 @@ render_generic_struct(lang: string, name: string, fields: ptr) -> string {
             out = string.concat(out, "\n")
         } else if lang == "dart" || lang == "swift" || lang == "zig" || lang == "moonbit" {
             out = string.concat(out, "  ")
-            if lang == "dart" { out = string.concat(out, "final ") }
+            if lang == "dart" {
+                out = string.concat(out, "final ")
+                out = string.concat(out, ftype)
+                out = string.concat(out, " ")
+                out = string.concat(out, fname)
+                out = string.concat(out, ";")
+                out = string.concat(out, "\n")
+                i = i + 1
+                continue
+            }
             if lang == "swift" { out = string.concat(out, "public let ") }
             if lang == "moonbit" { out = string.concat(out, "pub ") }
             out = string.concat(out, fname)
             out = string.concat(out, ": ")
             out = string.concat(out, ftype)
-            if lang == "dart" || lang == "zig" { out = string.concat(out, ";") }
+            if lang == "zig" { out = string.concat(out, ",") }
             out = string.concat(out, "\n")
         }
         i = i + 1
@@ -789,8 +796,26 @@ render_generic_struct(lang: string, name: string, fields: ptr) -> string {
         out = string.concat(out, ")")
         if lang == "java" || lang == "csharp" { out = string.concat(out, " {}") }
         out = string.concat(out, "\n")
+    } else if lang == "cpp" {
+        out = string.concat(out, "};\n")
+    } else if lang == "dart" {
+        out = string.concat(out, "\n  const ")
+        out = string.concat(out, name)
+        out = string.concat(out, "(")
+        j = 0
+        while j < n {
+            field2, err2 = json.array_get(fields, j)
+            if err2 != "" { fail(err2) }
+            if j > 0 { out = string.concat(out, ", ") }
+            out = string.concat(out, "this.")
+            out = string.concat(out, must_string(field2, "name"))
+            j = j + 1
+        }
+        out = string.concat(out, ");\n}\n")
     } else if lang == "gleam" {
         out = string.concat(out, "  )\n}\n")
+    } else if lang == "zig" {
+        out = string.concat(out, "};\n")
     } else {
         out = string.concat(out, "}\n")
     }
