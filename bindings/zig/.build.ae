@@ -6,7 +6,7 @@ import std.path
 import zig
 import zig (output)
 
-main() {
+aeb(cap) {
     b = build.start()
     dep(b, "aether/.build.ae")
     dep(b, "generators/zig/.build.ae")

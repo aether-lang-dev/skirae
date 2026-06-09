@@ -5,7 +5,7 @@ import dart
 import std.map
 import std.path
 
-main() {
+aeb(cap) {
     b = build.start()
     dep(b, "aether/.build.ae")
     dep(b, "generators/dart/.build.ae")

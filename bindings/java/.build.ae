@@ -6,7 +6,7 @@ import java (release)
 import std.map
 import std.os
 
-main() {
+aeb(cap) {
     b = build.start()
     dep(b, "aether/.build.ae")
     dep(b, "generators/java/.build.ae")

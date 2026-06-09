@@ -6,7 +6,7 @@ import kotlin (jvm_target)
 import std.map
 import std.os
 
-main() {
+aeb(cap) {
     b = build.start()
     dep(b, "aether/.build.ae")
     dep(b, "generators/kotlin/.build.ae")

@@ -6,7 +6,7 @@ import std.os
 import std.path
 import swift
 
-main() {
+aeb(cap) {
     b = build.start()
     dep(b, "aether/.build.ae")
     dep(b, "generators/swift/.build.ae")

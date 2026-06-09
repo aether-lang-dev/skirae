@@ -2,7 +2,7 @@ import build
 import aether
 import aether (source, output)
 
-main() {
+aeb(cap) {
     b = build.start()
     aether.program(b) {
         source("../skir_bindgen.ae")
