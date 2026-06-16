@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import std.map
 import std.os
@@ -8,6 +8,7 @@ import swift
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "swift:5")
     dep(b, "aether/.build.ae")
     dep(b, "generators/swift/.build.ae")
 

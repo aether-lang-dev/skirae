@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import python
 import std.map
@@ -8,6 +8,7 @@ import std.path
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "python:3")
     dep(b, "aether/.build.ae")
     dep(b, "generators/python/.build.ae")
 

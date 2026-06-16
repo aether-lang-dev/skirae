@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import std.map
 import std.path
@@ -8,6 +8,7 @@ import zig (output)
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "zig:0")
     dep(b, "aether/.build.ae")
     dep(b, "generators/zig/.build.ae")
 

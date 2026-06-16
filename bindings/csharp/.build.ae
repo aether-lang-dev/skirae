@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import dotnet
 import dotnet (csproj_path)
@@ -9,6 +9,7 @@ import std.path
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "dotnet:8")
     dep(b, "aether/.build.ae")
     dep(b, "generators/csharp/.build.ae")
 

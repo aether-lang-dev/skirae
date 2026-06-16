@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import rust
 import std.map
@@ -8,6 +8,7 @@ import std.path
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "rust:1")
     dep(b, "aether/.build.ae")
     dep(b, "generators/rust/.build.ae")
 

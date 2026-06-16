@@ -63,8 +63,14 @@ When `command` is present, Skir runs it as:
 
 That is the replacement for the old npm-module generator import path. Per-target
 generators can be native Aether binaries and do not need to link to or import
-the Skir core. In this repo, `aeb .build.ae` builds those binaries under
-`target/build/generators/...` before `skir gen` runs them.
+the Skir core. In this repo, `generators/<language>/.build.ae` builds those
+binaries under `target/build/generators/...` before `skir gen` runs them.
+
+Generated binding smoke targets live under `bindings/<language>/.build.ae`.
+Each one generates from `fixtures/greet/schema.ae`, invokes the corresponding
+generator, builds the result with aeb's language SDK, and declares its
+toolchain need with `build.prereq(...)` so `aeb --prereqs <target>` can report
+the required toolchain token.
 
 Language-specific package metadata belongs to the binding generator output. The
 TypeScript generator emits `package.json`; the Python generator emits

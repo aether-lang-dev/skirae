@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import std.map
 import std.os
@@ -9,6 +9,7 @@ import ts (strict, ts_target, module_kind, out_dir)
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "node:20")
     dep(b, "aether/.build.ae")
     dep(b, "generators/typescript/.build.ae")
 

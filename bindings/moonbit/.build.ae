@@ -1,5 +1,5 @@
 import build
-import build (dep)
+import build (dep, prereq)
 import binding_build
 import moonbit
 import std.map
@@ -8,6 +8,7 @@ import std.path
 
 aeb(cap) {
     b = build.start()
+    prereq(b, "moon:0")
     dep(b, "aether/.build.ae")
     dep(b, "generators/moonbit/.build.ae")
 
