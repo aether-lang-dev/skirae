@@ -390,7 +390,7 @@ run_init(root: string) -> int {
     }
     hello = path_join(src_dir, "hello_world.ae")
     if fs.exists(hello) == 0 {
-        sample = "import skir_schema (document, structure, field, string_type)\nimport std.os\n\nmain() {\n    out = aether_args_get(1)\n    if out == null { out = \"skirout/skir-ir.json\" }\n    document(out) {\n        structure(\"Greeting\") {\n            field(\"message\", string_type())\n        }\n    }\n}\n"
+        sample = "import skir_schema (document, structure, field, record_name, field_name,\n                    string_type)\nimport std.os\n\nmain() {\n    out = aether_args_get(1)\n    if out == null { out = \"skirout/skir-ir.json\" }\n    document(out) {\n        structure(record_name(\"Greeting\")) {\n            field(field_name(\"message\"), string_type())\n        }\n    }\n}\n"
         err_sample = fs.write(hello, sample)
         if err_sample != "" {
             println(string.concat("Cannot write ", hello))

@@ -4,9 +4,15 @@ import std.string
 
 exports (
     document, structure, enumeration, field, variant, constant, method,
+    record_name, field_name, method_name, method_number,
     string_type, int32_type, bool_type, float32_type, array_type, optional_type,
     keyed_array_type, ref_type
 )
+
+struct RecordName { value: string }
+struct FieldName { value: string }
+struct MethodName { value: string }
+struct MethodNumber { value: int }
 
 json_escape(s: string) -> string {
     out = ""
@@ -45,6 +51,22 @@ require_non_empty(value: string where string.length(value) > 0) -> string {
 
 require_positive(value: int where value > 0) -> int {
     return value
+}
+
+record_name(value: string where string.length(value) > 0) -> RecordName {
+    return RecordName { value: value }
+}
+
+field_name(value: string where string.length(value) > 0) -> FieldName {
+    return FieldName { value: value }
+}
+
+method_name(value: string where string.length(value) > 0) -> MethodName {
+    return MethodName { value: value }
+}
+
+method_number(value: int where value > 0) -> MethodNumber {
+    return MethodNumber { value: value }
 }
 
 append_json(ctx: ptr, text: string) {
@@ -100,18 +122,17 @@ keyed_array_type(element: string where string.length(element) > 0,
     return out
 }
 
-ref_type(name: string where string.length(name) > 0) -> string {
+ref_type(name: RecordName) -> string {
     out = "{\"kind\":\"ref\",\"name\":"
-    out = string.concat(out, quote(name))
+    out = string.concat(out, quote(name.value))
     out = string.concat(out, "}")
     return out
 }
 
-field(_ctx: ptr, name: string, type_json: string) {
-    name = require_non_empty(name)
+field(_ctx: ptr, name: FieldName, type_json: string) {
     type_json = require_non_empty(type_json)
     out = "{\"kind\":\"field\",\"name\":"
-    out = string.concat(out, quote(name))
+    out = string.concat(out, quote(name.value))
     out = string.concat(out, ",\"type\":")
     out = string.concat(out, type_json)
     out = string.concat(out, "}")
@@ -126,10 +147,10 @@ variant(_ctx: ptr, name: string) {
     append_json(_ctx, out)
 }
 
-builder structure(name: string where string.length(name) > 0) with list_new {
+builder structure(name: RecordName) with list_new {
     parent = builder_context()
     out = "{\"kind\":\"struct\",\"name\":"
-    out = string.concat(out, quote(name))
+    out = string.concat(out, quote(name.value))
     out = string.concat(out, ",\"fields\":")
     out = string.concat(out, render_array(_builder))
     out = string.concat(out, "}")
@@ -160,20 +181,16 @@ constant(_ctx: ptr, name: string, type_json: string, value_json: string) {
     append_json(_ctx, out)
 }
 
-method(_ctx: ptr, name: string, request_type: string, response_type: string,
-       number: int) {
-    name = require_non_empty(name)
-    request_type = require_non_empty(request_type)
-    response_type = require_non_empty(response_type)
-    number = require_positive(number)
+method(_ctx: ptr, name: MethodName, request_type: RecordName,
+       response_type: RecordName, number: MethodNumber) {
     out = "{\"kind\":\"method\",\"name\":"
-    out = string.concat(out, quote(name))
+    out = string.concat(out, quote(name.value))
     out = string.concat(out, ",\"request\":")
     out = string.concat(out, ref_type(request_type))
     out = string.concat(out, ",\"response\":")
     out = string.concat(out, ref_type(response_type))
     out = string.concat(out, ",\"number\":")
-    out = string.concat(out, string.from_int(number))
+    out = string.concat(out, string.from_int(number.value))
     out = string.concat(out, "}")
     append_json(_ctx, out)
 }

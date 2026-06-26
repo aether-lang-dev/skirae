@@ -1,12 +1,13 @@
-import skir_schema (document, structure, field, string_type)
+import skir_schema (document, structure, field, record_name, field_name,
+                    string_type)
 import std.os
 
 main() {
     out = aether_args_get(1)
     if out == null { out = "skir-ir.json" }
     document(out) {
-        structure("Greeting") {
-            field("message", string_type())
+        structure(record_name("Greeting")) {
+            field(field_name("message"), string_type())
         }
     }
 }

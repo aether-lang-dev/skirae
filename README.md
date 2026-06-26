@@ -86,12 +86,13 @@ language target, and binding smoke leaves for locally available toolchains.
 Schemas are Aether programs. A minimal schema program looks like this:
 
 ```aether
-import skir_schema (document, structure, field, string_type)
+import skir_schema (document, structure, field, record_name, field_name,
+                    string_type)
 
 main() {
     document("skirout/skir-ir.json") {
-        structure("Greeting") {
-            field("message", string_type())
+        structure(record_name("Greeting")) {
+            field(field_name("message"), string_type())
         }
     }
 }

@@ -1,7 +1,8 @@
 import aeocha
 import skir_schema (document, structure, enumeration, field, variant,
                     constant, method, string_type, float32_type, array_type,
-                    ref_type)
+                    ref_type, record_name, field_name, method_name,
+                    method_number)
 import std.fs
 import std.list
 import std.os
@@ -46,21 +47,22 @@ main() {
             aeocha.it("emits schema IR without a skir intermediate") callback {
                 out_path = "/tmp/skir_aeocha_schema.json"
                 document(out_path) {
-                    structure("Point") {
-                        field("x", float32_type())
-                        field("y", float32_type())
+                    structure(record_name("Point")) {
+                        field(field_name("x"), float32_type())
+                        field(field_name("y"), float32_type())
                     }
 
                     enumeration("RobotAction") {
                         variant("wave")
-                        field("say", string_type())
-                        field("move", ref_type("Point"))
+                        field(field_name("say"), string_type())
+                        field(field_name("move"), ref_type(record_name("Point")))
                     }
 
                     constant("GREET_ACTIONS",
-                             array_type(ref_type("RobotAction")),
+                             array_type(ref_type(record_name("RobotAction"))),
                              "[\"wave\"]")
-                    method("PerformAction", "RobotAction", "bool", 12345)
+                    method(method_name("PerformAction"), record_name("RobotAction"),
+                           record_name("bool"), method_number(12345))
                 }
 
                 text, err = fs.read(out_path)
@@ -84,7 +86,7 @@ main() {
             }
 
             aeocha.it("initializes and generates IR") callback {
-                root = "/tmp/skir_aeocha_project_all_generators"
+                root = "/tmp/skir_aeocha_project_all_generators_typed_schema"
                 mkdir_err = fs.mkdir_p(root)
                 aeocha.assert_str_eq(fw, mkdir_err, "", "temp root created")
                 out_init, code_init, err_init = run_capture2("/home/paul/scm/skir/bin/skir", "init", "--root=${root}")

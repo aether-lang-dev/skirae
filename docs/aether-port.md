@@ -21,12 +21,13 @@ programs that use `skir_schema` builder calls to produce IR directly.
 A minimal schema source looks like this:
 
 ```aether
-import skir_schema (document, structure, field, string_type)
+import skir_schema (document, structure, field, record_name, field_name,
+                    string_type)
 
 main() {
     document("skirout/skir-ir.json") {
-        structure("Greeting") {
-            field("message", string_type())
+        structure(record_name("Greeting")) {
+            field(field_name("message"), string_type())
         }
     }
 }
