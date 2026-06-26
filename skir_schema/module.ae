@@ -39,6 +39,14 @@ quote(s: string) -> string {
     return out
 }
 
+require_non_empty(value: string where string.length(value) > 0) -> string {
+    return value
+}
+
+require_positive(value: int where value > 0) -> int {
+    return value
+}
+
 append_json(ctx: ptr, text: string) {
     if ctx != null {
         list.add(ctx, text)
@@ -68,21 +76,22 @@ int32_type() -> string { return "{\"kind\":\"primitive\",\"name\":\"int32\"}" }
 bool_type() -> string { return "{\"kind\":\"primitive\",\"name\":\"bool\"}" }
 float32_type() -> string { return "{\"kind\":\"primitive\",\"name\":\"float32\"}" }
 
-array_type(element: string) -> string {
+array_type(element: string where string.length(element) > 0) -> string {
     out = "{\"kind\":\"array\",\"element\":"
     out = string.concat(out, element)
     out = string.concat(out, "}")
     return out
 }
 
-optional_type(inner: string) -> string {
+optional_type(inner: string where string.length(inner) > 0) -> string {
     out = "{\"kind\":\"optional\",\"inner\":"
     out = string.concat(out, inner)
     out = string.concat(out, "}")
     return out
 }
 
-keyed_array_type(element: string, key: string) -> string {
+keyed_array_type(element: string where string.length(element) > 0,
+                 key: string where string.length(key) > 0) -> string {
     out = "{\"kind\":\"keyed_array\",\"element\":"
     out = string.concat(out, element)
     out = string.concat(out, ",\"key\":")
@@ -91,7 +100,7 @@ keyed_array_type(element: string, key: string) -> string {
     return out
 }
 
-ref_type(name: string) -> string {
+ref_type(name: string where string.length(name) > 0) -> string {
     out = "{\"kind\":\"ref\",\"name\":"
     out = string.concat(out, quote(name))
     out = string.concat(out, "}")
@@ -99,6 +108,8 @@ ref_type(name: string) -> string {
 }
 
 field(_ctx: ptr, name: string, type_json: string) {
+    name = require_non_empty(name)
+    type_json = require_non_empty(type_json)
     out = "{\"kind\":\"field\",\"name\":"
     out = string.concat(out, quote(name))
     out = string.concat(out, ",\"type\":")
@@ -108,13 +119,14 @@ field(_ctx: ptr, name: string, type_json: string) {
 }
 
 variant(_ctx: ptr, name: string) {
+    name = require_non_empty(name)
     out = "{\"kind\":\"variant\",\"name\":"
     out = string.concat(out, quote(name))
     out = string.concat(out, "}")
     append_json(_ctx, out)
 }
 
-builder structure(name: string) with list_new {
+builder structure(name: string where string.length(name) > 0) with list_new {
     parent = builder_context()
     out = "{\"kind\":\"struct\",\"name\":"
     out = string.concat(out, quote(name))
@@ -124,7 +136,7 @@ builder structure(name: string) with list_new {
     append_json(parent, out)
 }
 
-builder enumeration(name: string) with list_new {
+builder enumeration(name: string where string.length(name) > 0) with list_new {
     parent = builder_context()
     out = "{\"kind\":\"enum\",\"name\":"
     out = string.concat(out, quote(name))
@@ -135,6 +147,9 @@ builder enumeration(name: string) with list_new {
 }
 
 constant(_ctx: ptr, name: string, type_json: string, value_json: string) {
+    name = require_non_empty(name)
+    type_json = require_non_empty(type_json)
+    value_json = require_non_empty(value_json)
     out = "{\"kind\":\"constant\",\"name\":"
     out = string.concat(out, quote(name))
     out = string.concat(out, ",\"type\":")
@@ -147,6 +162,10 @@ constant(_ctx: ptr, name: string, type_json: string, value_json: string) {
 
 method(_ctx: ptr, name: string, request_type: string, response_type: string,
        number: int) {
+    name = require_non_empty(name)
+    request_type = require_non_empty(request_type)
+    response_type = require_non_empty(response_type)
+    number = require_positive(number)
     out = "{\"kind\":\"method\",\"name\":"
     out = string.concat(out, quote(name))
     out = string.concat(out, ",\"request\":")
@@ -159,7 +178,7 @@ method(_ctx: ptr, name: string, request_type: string, response_type: string,
     append_json(_ctx, out)
 }
 
-builder document(path: string) with list_new {
+builder document(path: string where string.length(path) > 0) with list_new {
     out = "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[{\"path\":\"schema.ae\",\"declarations\":"
     out = string.concat(out, render_array(_builder))
     out = string.concat(out, "}]}")
