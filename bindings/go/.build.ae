@@ -1,7 +1,5 @@
-import build
 import build (dep, prereq)
 import binding_build
-import go
 import go (env_var)
 import std.map
 import std.os

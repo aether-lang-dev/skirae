@@ -1,7 +1,5 @@
-import build
 import build (dep, prereq)
 import binding_build
-import kotlin
 import kotlin (jvm_target)
 import std.map
 import std.os

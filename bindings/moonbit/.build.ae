@@ -1,4 +1,3 @@
-import build
 import build (dep, prereq)
 import binding_build
 import moonbit

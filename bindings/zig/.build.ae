@@ -1,9 +1,7 @@
-import build
 import build (dep, prereq)
 import binding_build
 import std.map
 import std.path
-import zig
 import zig (output)
 
 aeb(cap) {
