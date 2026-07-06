@@ -53,24 +53,60 @@ append(out: string, line: string) -> string {
     return out
 }
 
-must_string(obj: ptr, key: string) -> string {
-    v, err = json.object_get(obj, key)
-    if err != "" || v == null {
-        fail(string.concat("missing string key: ", key))
+json_member(obj: ptr, key: string) -> ptr! {
+    v = json.object_get(obj, key)!
+    if v == null {
+        return null, string.concat("missing key: ", key)
     }
-    s, err2 = json.get_string(v)
-    if err2 != "" {
-        fail(string.concat("expected string for key: ", key))
-    }
+    return v
+}
+
+json_string_member(obj: ptr, key: string) -> string! {
+    v = json_member(obj, key)!
+    s = json.get_string(v)!
     return s
 }
 
-must_ptr(obj: ptr, key: string) -> ptr {
-    v, err = json.object_get(obj, key)
-    if err != "" || v == null {
-        fail(string.concat("missing key: ", key))
+json_string_value(value: ptr) -> string! {
+    s = json.get_string(value)!
+    return s
+}
+
+json_array_item(items: ptr, index: int) -> ptr! {
+    item = json.array_get(items, index)!
+    return item
+}
+
+must_string(obj: ptr, key: string) -> string {
+    value = json_string_member(obj, key) or {
+        fail(err)
+        return ""
     }
-    return v
+    return value
+}
+
+must_ptr(obj: ptr, key: string) -> ptr {
+    value = json_member(obj, key) or {
+        fail(err)
+        return null
+    }
+    return value
+}
+
+must_array_item(items: ptr, index: int) -> ptr {
+    value = json_array_item(items, index) or {
+        fail(err)
+        return null
+    }
+    return value
+}
+
+must_value_string(value: ptr) -> string {
+    text = json_string_value(value) or {
+        fail(err)
+        return ""
+    }
+    return text
 }
 
 base_name(path: string) -> string {
@@ -89,15 +125,11 @@ module_stem(path: string) -> string {
 }
 
 kind_of(value: ptr) -> string {
-    kind_v, err = json.object_get(value, "kind")
-    if err != "" || kind_v == null {
-        fail("type node missing kind")
+    kind = json_string_member(value, "kind") or {
+        fail(err)
+        return ""
     }
-    kind_s, err2 = json.get_string(kind_v)
-    if err2 != "" {
-        fail("type node kind must be string")
-    }
-    return kind_s
+    return kind
 }
 
 render_ts_type(ty: ptr) -> string {
@@ -313,8 +345,7 @@ render_ts_literal(value: ptr) -> string {
         return string.from_float(json.get_number(value))
     }
     if t == JSON_STRING {
-        s, err = json.get_string(value)
-        if err != "" { fail(err) }
+        s = must_value_string(value)
         return quote(s)
     }
     if t == JSON_ARRAY {
@@ -322,8 +353,7 @@ render_ts_literal(value: ptr) -> string {
         n = json.array_size(value)
         i = 0
         while i < n {
-            item, ierr = json.array_get(value, i)
-            if ierr != "" { fail(ierr) }
+            item = must_array_item(value, i)
             if i > 0 { out = string.concat(out, ", ") }
             out = string.concat(out, render_ts_literal(item))
             i = i + 1
@@ -361,8 +391,7 @@ render_py_literal(value: ptr) -> string {
         return string.from_float(json.get_number(value))
     }
     if t == JSON_STRING {
-        s, err = json.get_string(value)
-        if err != "" { fail(err) }
+        s = must_value_string(value)
         return quote(s)
     }
     if t == JSON_ARRAY {
@@ -370,8 +399,7 @@ render_py_literal(value: ptr) -> string {
         n = json.array_size(value)
         i = 0
         while i < n {
-            item, ierr = json.array_get(value, i)
-            if ierr != "" { fail(ierr) }
+            item = must_array_item(value, i)
             if i > 0 { out = string.concat(out, ", ") }
             out = string.concat(out, render_py_literal(item))
             i = i + 1
@@ -411,8 +439,7 @@ render_ts_struct(name: string, fields: ptr) -> string {
     n = json.array_size(fields)
     i = 0
     while i < n {
-        field, err = json.array_get(fields, i)
-        if err != "" { fail(err) }
+        field = must_array_item(fields, i)
         fname = must_string(field, "name")
         ftype = must_ptr(field, "type")
         line = "  "
@@ -439,8 +466,7 @@ render_py_struct(name: string, fields: ptr) -> string {
     }
     i = 0
     while i < n {
-        field, err = json.array_get(fields, i)
-        if err != "" { fail(err) }
+        field = must_array_item(fields, i)
         fname = must_string(field, "name")
         ftype = must_ptr(field, "type")
         line = "    "
@@ -459,8 +485,7 @@ render_ts_enum(enum_name: string, members: ptr) -> string {
     has_fields = 0
     i = 0
     while i < n {
-        m, err = json.array_get(members, i)
-        if err != "" { fail(err) }
+        m = must_array_item(members, i)
         if kind_of(m) == "field" {
             has_fields = 1
         }
@@ -475,8 +500,7 @@ render_ts_enum(enum_name: string, members: ptr) -> string {
         out = string.concat(out, enum_name)
         out = string.concat(out, " = ")
         while i < n {
-            m2, err2 = json.array_get(members, i)
-            if err2 != "" { fail(err2) }
+            m2 = must_array_item(members, i)
             if first == 0 { out = string.concat(out, " | ") }
             if kind_of(m2) == "variant" {
                 out = string.concat(out, quote(must_string(m2, "name")))
@@ -492,8 +516,7 @@ render_ts_enum(enum_name: string, members: ptr) -> string {
 
     i = 0
     while i < n {
-        m3, err3 = json.array_get(members, i)
-        if err3 != "" { fail(err3) }
+        m3 = must_array_item(members, i)
         if kind_of(m3) == "field" {
             child = member_name(enum_name, must_string(m3, "name"))
             out = string.concat(out, "export interface ")
@@ -516,8 +539,7 @@ render_ts_enum(enum_name: string, members: ptr) -> string {
     i = 0
     first = 1
     while i < n {
-        m4, err4 = json.array_get(members, i)
-        if err4 != "" { fail(err4) }
+        m4 = must_array_item(members, i)
         if first == 0 { out = string.concat(out, " | ") }
         if kind_of(m4) == "variant" {
             out = string.concat(out, quote(must_string(m4, "name")))
@@ -536,8 +558,7 @@ render_py_enum(enum_name: string, members: ptr) -> string {
     has_fields = 0
     i = 0
     while i < n {
-        m, err = json.array_get(members, i)
-        if err != "" { fail(err) }
+        m = must_array_item(members, i)
         if kind_of(m) == "field" {
             has_fields = 1
         }
@@ -555,8 +576,7 @@ render_py_enum(enum_name: string, members: ptr) -> string {
             return out
         }
         while i < n {
-            m2, err2 = json.array_get(members, i)
-            if err2 != "" { fail(err2) }
+            m2 = must_array_item(members, i)
             line = "    "
             line = string.concat(line, must_string(m2, "name"))
             line = string.concat(line, " = ")
@@ -570,8 +590,7 @@ render_py_enum(enum_name: string, members: ptr) -> string {
 
     i = 0
     while i < n {
-        m3, err3 = json.array_get(members, i)
-        if err3 != "" { fail(err3) }
+        m3 = must_array_item(members, i)
         if kind_of(m3) == "field" {
             child = member_name(enum_name, must_string(m3, "name"))
             out = string.concat(out, "@dataclass\nclass ")
@@ -592,8 +611,7 @@ render_py_enum(enum_name: string, members: ptr) -> string {
     first = 1
     i = 0
     while i < n {
-        m4, err4 = json.array_get(members, i)
-        if err4 != "" { fail(err4) }
+        m4 = must_array_item(members, i)
         if first == 0 { out = string.concat(out, " | ") }
         if kind_of(m4) == "variant" {
             out = string.concat(out, "Literal[")
@@ -656,8 +674,7 @@ render_ts_module(name: string, decls: ptr) -> string {
     n = json.array_size(decls)
     i = 0
     while i < n {
-        decl, err = json.array_get(decls, i)
-        if err != "" { fail(err) }
+        decl = must_array_item(decls, i)
         kind = must_string(decl, "kind")
         if kind == "struct" {
             out = string.concat(out, render_ts_struct(must_string(decl, "name"), must_ptr(decl, "fields")))
@@ -683,8 +700,7 @@ render_py_module(name: string, decls: ptr) -> string {
     n = json.array_size(decls)
     i = 0
     while i < n {
-        decl, err = json.array_get(decls, i)
-        if err != "" { fail(err) }
+        decl = must_array_item(decls, i)
         kind = must_string(decl, "kind")
         if kind == "struct" {
             out = string.concat(out, render_py_struct(must_string(decl, "name"), must_ptr(decl, "fields")))
@@ -733,8 +749,7 @@ render_generic_struct(lang: string, name: string, fields: ptr) -> string {
     n = json.array_size(fields)
     i = 0
     while i < n {
-        field, err = json.array_get(fields, i)
-        if err != "" { fail(err) }
+        field = must_array_item(fields, i)
         fname = must_string(field, "name")
         ftype = render_lang_type(lang, must_ptr(field, "type"))
         if lang == "cpp" {
@@ -804,8 +819,7 @@ render_generic_struct(lang: string, name: string, fields: ptr) -> string {
         out = string.concat(out, "(")
         j = 0
         while j < n {
-            field2, err2 = json.array_get(fields, j)
-            if err2 != "" { fail(err2) }
+            field2 = must_array_item(fields, j)
             if j > 0 { out = string.concat(out, ", ") }
             out = string.concat(out, "this.")
             out = string.concat(out, must_string(field2, "name"))
@@ -833,8 +847,7 @@ render_generic_enum(lang: string, enum_name: string, members: ptr) -> string {
         n = json.array_size(members)
         i = 0
         while i < n {
-            m, err = json.array_get(members, i)
-            if err != "" { fail(err) }
+            m = must_array_item(members, i)
             name = must_string(m, "name")
             out = string.concat(out, "  ")
             if lang == "swift" { out = string.concat(out, "case ") }
@@ -862,8 +875,7 @@ render_generic_enum(lang: string, enum_name: string, members: ptr) -> string {
     n2 = json.array_size(members)
     j = 0
     while j < n2 {
-        m2, err2 = json.array_get(members, j)
-        if err2 != "" { fail(err2) }
+        m2 = must_array_item(members, j)
         name2 = must_string(m2, "name")
         out = string.concat(out, "  ")
         if lang == "go" {
@@ -921,8 +933,7 @@ render_generic_module(lang: string, decls: ptr) -> string {
     n = json.array_size(decls)
     i = 0
     while i < n {
-        decl, err = json.array_get(decls, i)
-        if err != "" { fail(err) }
+        decl = must_array_item(decls, i)
         kind = must_string(decl, "kind")
         if kind == "struct" {
             out = string.concat(out, render_generic_struct(lang, must_string(decl, "name"), must_ptr(decl, "fields")))
@@ -975,8 +986,7 @@ write_generic_outputs(lang: string, out_dir: string, modules: ptr) {
     nmods = json.array_size(modules)
     i = 0
     while i < nmods {
-        mod, err = json.array_get(modules, i)
-        if err != "" { fail(err) }
+        mod = must_array_item(modules, i)
         path = must_string(mod, "path")
         decls = must_ptr(mod, "declarations")
         stem = module_stem(path)
@@ -993,8 +1003,7 @@ render_ts_root(modules: ptr) -> string {
     n = json.array_size(modules)
     i = 0
     while i < n {
-        mod, err = json.array_get(modules, i)
-        if err != "" { fail(err) }
+        mod = must_array_item(modules, i)
         path = must_string(mod, "path")
         out = string.concat(out, "export * from \"./")
         out = string.concat(out, module_stem(path))
@@ -1009,8 +1018,7 @@ render_py_root(modules: ptr) -> string {
     n = json.array_size(modules)
     i = 0
     while i < n {
-        mod, err = json.array_get(modules, i)
-        if err != "" { fail(err) }
+        mod = must_array_item(modules, i)
         path = must_string(mod, "path")
         out = string.concat(out, "from .")
         out = string.concat(out, module_stem(path))
@@ -1079,8 +1087,7 @@ main() {
         nmods = json.array_size(modules)
         i = 0
         while i < nmods {
-            mod, err = json.array_get(modules, i)
-            if err != "" { fail(err) }
+            mod = must_array_item(modules, i)
             path = must_string(mod, "path")
             decls = must_ptr(mod, "declarations")
             stem = module_stem(path)
@@ -1100,8 +1107,7 @@ main() {
         nmods = json.array_size(modules)
         i = 0
         while i < nmods {
-            mod, err = json.array_get(modules, i)
-            if err != "" { fail(err) }
+            mod = must_array_item(modules, i)
             path = must_string(mod, "path")
             decls = must_ptr(mod, "declarations")
             stem = module_stem(path)

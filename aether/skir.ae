@@ -1,4 +1,5 @@
 import std.fs
+import std.collections
 import std.list
 import std.os
 import std.string
@@ -19,7 +20,7 @@ help() {
     println("")
     println("Options:")
     println("  --root, -r <path>  Project root containing skir.json")
-    println("  --watch, -w        Accepted for CLI compatibility; runs one generation")
+    println("  --watch, -w        Re-run generation when schema sources change")
     println("  --ci               Check mode for format/snapshot")
     println("  --dry-run          Snapshot compatibility mode")
     println("  --view             Display the last snapshot")
@@ -112,76 +113,92 @@ run_schema_program(schema_path: string, out_path: string) -> int {
     return 0
 }
 
+collect_schema_sources(src_dir: string) -> (ptr, int) {
+    files = string_list_new()
+    _, walk_err = fs.walk(src_dir, |path: string, kind: int, depth: int| {
+        if kind == 1 && string.ends_with(path, ".ae") == 1 {
+            _added = string_list_add(files, path)
+        }
+        return 0
+    })
+    if walk_err != "" {
+        string_list_free(files)
+        return null, 1
+    }
+    string_list_sort_lex(files)
+    return files, 0
+}
+
 collect_ir(root: string) -> (string, int) {
     src_dir = path_join(root, "skir-src")
-    pattern = path_join(src_dir, "**/*.ae")
-    files = fs_glob_raw(pattern)
-    if files == null {
+    files, collect_failed = collect_schema_sources(src_dir)
+    if collect_failed != 0 || files == null {
         println("No Aether schema programs found in source directory")
         return "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[]}", 1
     }
-    count = dir_list_count(files)
+    if string_list_size(files) == 0 {
+        string_list_free(files)
+        println("No Aether schema programs found in source directory")
+        return "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":[]}", 1
+    }
+    count = string_list_size(files)
     failed = 0
     out = "{\"schemaVersion\":1,\"implementation\":\"aether-dsl\",\"modules\":["
     first_module = 1
     i = 0
-    previous_path = ""
     while i < count {
-        full_path = dir_list_get(files, i)
-        if full_path != previous_path {
-            previous_path = full_path
-            tmp_ir = "/tmp/skir_schema_ir.json"
-            rc = run_schema_program(full_path, tmp_ir)
-            if rc != 0 {
+        full_path = string_list_get(files, i)
+        tmp_ir = "/tmp/skir_schema_ir.json"
+        rc = run_schema_program(full_path, tmp_ir)
+        if rc != 0 {
+            failed = 1
+        } else {
+            ir_text, read_err = fs.read(tmp_ir)
+            if read_err != "" {
+                println(string.concat("cannot read schema IR: ", tmp_ir))
                 failed = 1
             } else {
-                ir_text, read_err = fs.read(tmp_ir)
-                if read_err != "" {
-                    println(string.concat("cannot read schema IR: ", tmp_ir))
+                parsed, parse_err = json.parse(ir_text)
+                if parse_err != "" || parsed == null {
+                    println(string.concat("cannot parse schema IR: ", full_path))
                     failed = 1
                 } else {
-                    parsed, parse_err = json.parse(ir_text)
-                    if parse_err != "" || parsed == null {
-                        println(string.concat("cannot parse schema IR: ", full_path))
+                    modules_v, mod_err = json.object_get(parsed, "modules")
+                    if mod_err != "" || modules_v == null {
+                        println(string.concat("schema IR missing modules: ", full_path))
                         failed = 1
                     } else {
-                        modules_v, mod_err = json.object_get(parsed, "modules")
-                        if mod_err != "" || modules_v == null {
-                            println(string.concat("schema IR missing modules: ", full_path))
-                            failed = 1
-                        } else {
-                            mod_count = json.array_size(modules_v)
-                            j = 0
-                            while j < mod_count {
-                                mod_v, mod_err2 = json.array_get(modules_v, j)
-                                if mod_err2 != "" {
-                                    println(string.concat("schema IR module read failed: ", full_path))
-                                    failed = 1
-                                    j = mod_count
-                                } else {
-                                    if first_module == 0 {
-                                        out = string.concat(out, ",")
-                                    }
-                                    mod_text, stringify_err = json.stringify(mod_v)
-                                    if stringify_err != "" {
-                                        println(string.concat("schema IR stringify failed: ", full_path))
-                                        failed = 1
-                                    } else {
-                                        out = string.concat(out, mod_text)
-                                        first_module = 0
-                                    }
+                        mod_count = json.array_size(modules_v)
+                        j = 0
+                        while j < mod_count {
+                            mod_v, mod_err2 = json.array_get(modules_v, j)
+                            if mod_err2 != "" {
+                                println(string.concat("schema IR module read failed: ", full_path))
+                                failed = 1
+                                j = mod_count
+                            } else {
+                                if first_module == 0 {
+                                    out = string.concat(out, ",")
                                 }
-                                j = j + 1
+                                mod_text, stringify_err = json.stringify(mod_v)
+                                if stringify_err != "" {
+                                    println(string.concat("schema IR stringify failed: ", full_path))
+                                    failed = 1
+                                } else {
+                                    out = string.concat(out, mod_text)
+                                    first_module = 0
+                                }
                             }
-                            json.free(parsed)
+                            j = j + 1
                         }
+                        json.free(parsed)
                     }
                 }
             }
         }
         i = i + 1
     }
-    dir_list_free(files)
+    string_list_free(files)
     out = string.concat(out, "]}")
     return out, failed
 }
@@ -331,6 +348,144 @@ run_gen(root: string) -> int {
     return write_ir_outputs(root, ir)
 }
 
+open_schema_watches(src_dir: string) -> ptr {
+    dirs = string_list_new()
+    _, walk_err = fs.walk(src_dir, |path: string, kind: int, depth: int| {
+        if kind == 2 {
+            _added = string_list_add(dirs, path)
+        }
+        return 0
+    })
+    if walk_err != "" {
+        println(string.concat("Cannot watch schema source directory: ", src_dir))
+        string_list_free(dirs)
+        return null
+    }
+    string_list_sort_lex(dirs)
+
+    watches = list.new()
+    n = string_list_size(dirs)
+    i = 0
+    while i < n {
+        dir_path = string_list_get(dirs, i)
+        watch, watch_err = fs.watch_open(dir_path)
+        if watch_err != "" {
+            println(string.concat("Cannot watch ", dir_path))
+            watch_count = list.size(watches)
+            j = 0
+            while j < watch_count {
+                fs.watch_close(list.get_raw(watches, j))
+                j = j + 1
+            }
+            list.free(watches)
+            string_list_free(dirs)
+            return null
+        }
+        add_err = list.add(watches, watch)
+        if add_err != "" {
+            fs.watch_close(watch)
+            list.free(watches)
+            string_list_free(dirs)
+            return null
+        }
+        i = i + 1
+    }
+    string_list_free(dirs)
+    return watches
+}
+
+close_schema_watches(watches: ptr) {
+    if watches == null {
+        return
+    }
+    n = list.size(watches)
+    i = 0
+    while i < n {
+        fs.watch_close(list.get_raw(watches, i))
+        i = i + 1
+    }
+    list.free(watches)
+}
+
+schema_watches_wait(watches: ptr) -> int {
+    if watches == null {
+        return -1
+    }
+    n = list.size(watches)
+    if n <= 0 {
+        return -1
+    }
+    i = 0
+    while i < n {
+        timeout = 0
+        if i == 0 {
+            timeout = 500
+        }
+        changed = fs.watch_wait(list.get_raw(watches, i), timeout)
+        if changed != 0 {
+            return changed
+        }
+        i = i + 1
+    }
+    return 0
+}
+
+open_config_watch(root: string) -> ptr {
+    config_path = path_join(root, "skir.json")
+    if fs.exists(config_path) == 0 {
+        return null
+    }
+    watch, watch_err = fs.watch_open(config_path)
+    if watch_err != "" {
+        return null
+    }
+    return watch
+}
+
+run_gen_watch(root: string) -> int {
+    rc = run_gen(root)
+    src_dir = path_join(root, "skir-src")
+    watches = open_schema_watches(src_dir)
+    if watches == null {
+        return 1
+    }
+    config_watch = open_config_watch(root)
+    println(string.concat("Watching ", src_dir))
+
+    while true {
+        schema_changed = schema_watches_wait(watches)
+        if schema_changed < 0 {
+            close_schema_watches(watches)
+            fs.watch_close(config_watch)
+            return 1
+        }
+        config_changed = 0
+        if config_watch != null {
+            config_changed = fs.watch_wait(config_watch, 0)
+            if config_changed < 0 {
+                fs.watch_close(config_watch)
+                config_watch = null
+                config_changed = 0
+            }
+        }
+
+        if schema_changed == 1 || config_changed == 1 {
+            rc = run_gen(root)
+            close_schema_watches(watches)
+            watches = open_schema_watches(src_dir)
+            if watches == null {
+                fs.watch_close(config_watch)
+                return 1
+            }
+            if config_changed == 1 {
+                fs.watch_close(config_watch)
+                config_watch = open_config_watch(root)
+            }
+        }
+    }
+    return rc
+}
+
 run_format(root: string) -> int {
     _, failed = collect_ir(root)
     if failed != 0 {
@@ -422,7 +577,11 @@ main() {
     if cmd == "init" {
         rc = run_init(root)
     } else if cmd == "gen" {
-        rc = run_gen(root)
+        if has_flag("--watch") == 1 || has_flag("-w") == 1 {
+            rc = run_gen_watch(root)
+        } else {
+            rc = run_gen(root)
+        }
     } else if cmd == "format" {
         rc = run_format(root)
     } else if cmd == "snapshot" {
