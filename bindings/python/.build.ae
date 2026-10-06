@@ -1,4 +1,4 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import python
 import std.map
@@ -6,21 +6,23 @@ import std.os
 import std.path
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "python:3")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/python/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("python:3")
+        dep("aether/.build.ae")
+        dep("generators/python/.build.ae")
 
-    project = binding_build.prepare_project(b, "python")
-    if project == "" { return 1 }
-    smoke = "from skir.schema import Greeting\n\ngreeting = Greeting(message=\"Hello\")\nprint(f\"python Greeting.message={greeting.message}\")\n"
-    if binding_build.write_text(b, path.join(project, "smoke.py"), smoke) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "python")
+        if project == "" { return 1 }
+        smoke = "from skir.schema import Greeting\n\ngreeting = Greeting(message=\"Hello\")\nprint(f\"python Greeting.message={greeting.message}\")\n"
+        if binding_build.write_text(b, path.join(project, "smoke.py"), smoke) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = python.install(b)
-    if rc != 0 { return rc }
-    py = path.join(path.join(project, "skir"), "schema.py")
-    compile_rc = os.system("python3 -m py_compile '${py}'")
-    if compile_rc != 0 { return compile_rc }
-    return os.system("PYTHONPATH='${project}' python3 '${project}/smoke.py'")
+        _src = map.put(b, "source_dir", project)
+        rc = python.install()
+        if rc != 0 { return rc }
+        py = path.join(path.join(project, "skir"), "schema.py")
+        compile_rc = os.system("python3 -m py_compile '${py}'")
+        if compile_rc != 0 { return compile_rc }
+        return os.system("PYTHONPATH='${project}' python3 '${project}/smoke.py'")
+    }
 }

@@ -1,6 +1,8 @@
-import build (dep)
+import bldr (dep)
 
 aeb(cap) {
-    b = build.start()
-    dep(b, "aether/.build.ae")
+    bldr.build() {
+    dep("aether/.build.ae")
+        return 0
+    }
 }

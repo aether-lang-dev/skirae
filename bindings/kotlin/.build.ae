@@ -1,24 +1,26 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import kotlin (jvm_target)
 import std.map
 import std.os
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "kotlin:1")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/kotlin/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("kotlin:1")
+        dep("aether/.build.ae")
+        dep("generators/kotlin/.build.ae")
 
-    project = binding_build.prepare_project(b, "kotlin")
-    if project == "" { return 1 }
-    smoke = "fun main() {\n  val greeting = Greeting(\"Hello\")\n  println(\"kotlin Greeting.message=\" + greeting.message)\n}\n"
-    if binding_build.write_text(b, "${project}/smoke.kt", smoke) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "kotlin")
+        if project == "" { return 1 }
+        smoke = "fun main() {\n  val greeting = Greeting(\"Hello\")\n  println(\"kotlin Greeting.message=\" + greeting.message)\n}\n"
+        if binding_build.write_text(b, "${project}/smoke.kt", smoke) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = kotlin.kotlinc(b) {
+        _src = map.put(b, "source_dir", project)
+        rc = kotlin.kotlinc() {
         jvm_target("11")
+        }
+        if rc != 0 { return rc }
+        return os.system("kotlin -cp '${bldr.target_dir(b)}/classes' SmokeKt")
     }
-    if rc != 0 { return rc }
-    return os.system("kotlin -cp '${build.target_dir(b)}/classes' SmokeKt")
 }

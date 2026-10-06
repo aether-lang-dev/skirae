@@ -1,10 +1,12 @@
-import build
+import bldr
 import aether (source, output)
 
 aeb(cap) {
-    b = build.start()
-    aether.program(b) {
+    bldr.build() {
+    aether.program() {
         source("../skir_bindgen.ae")
         output("skir-gleam-gen")
+    }
+        return 0
     }
 }

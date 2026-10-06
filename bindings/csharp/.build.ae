@@ -1,4 +1,4 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import dotnet (csproj_path)
 import std.map
@@ -6,22 +6,24 @@ import std.os
 import std.path
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "dotnet:8")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/csharp/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("dotnet:8")
+        dep("aether/.build.ae")
+        dep("generators/csharp/.build.ae")
 
-    project = binding_build.prepare_project(b, "csharp")
-    if project == "" { return 1 }
-    program = "using Skir.Bindings;\n\nvar greeting = new Greeting(\"Hello\");\nConsole.WriteLine($\"csharp Greeting.message={greeting.message}\");\n"
-    if binding_build.write_text(b, path.join(project, "Program.cs"), program) != 0 { return 1 }
-    csproj = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n"
-    if binding_build.write_text(b, path.join(project, "Skir.Bindings.csproj"), csproj) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "csharp")
+        if project == "" { return 1 }
+        program = "using Skir.Bindings;\n\nvar greeting = new Greeting(\"Hello\");\nConsole.WriteLine($\"csharp Greeting.message={greeting.message}\");\n"
+        if binding_build.write_text(b, path.join(project, "Program.cs"), program) != 0 { return 1 }
+        csproj = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n"
+        if binding_build.write_text(b, path.join(project, "Skir.Bindings.csproj"), csproj) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = dotnet.build_project_existing(b) {
+        _src = map.put(b, "source_dir", project)
+        rc = dotnet.build_project_existing() {
         csproj_path("Skir.Bindings.csproj")
+        }
+        if rc != 0 { return rc }
+        return os.system("cd '${project}' && dotnet run --project Skir.Bindings.csproj")
     }
-    if rc != 0 { return rc }
-    return os.system("cd '${project}' && dotnet run --project Skir.Bindings.csproj")
 }

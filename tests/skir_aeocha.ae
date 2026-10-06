@@ -1,4 +1,5 @@
-import aeocha
+import std.spec
+import std.os.testing
 import skir_schema (document, structure, enumeration, field, variant,
                     constant, method, string_type, float32_type, array_type,
                     ref_type, record_name, field_name, method_name,
@@ -29,9 +30,9 @@ run_aetherc_effects(source: string, out_c: string) -> (string, int, string) {
     argv = list.new()
     list.add(argv, "--emit=effects")
     list.add(argv, "--lib")
-    list.add(argv, "/home/paul/scm/aeb/lib")
+    list.add(argv, string.concat(os.getenv("AEB_HOME"), "/lib"))
     list.add(argv, "--lib")
-    list.add(argv, "/home/paul/scm/skir")
+    list.add(argv, os.getcwd())
     list.add(argv, source)
     list.add(argv, out_c)
     out, code, err = os.run_capture("aetherc", argv, null)
@@ -40,25 +41,25 @@ run_aetherc_effects(source: string, out_c: string) -> (string, int, string) {
 }
 
 expect_aeb_target(fw: ptr, target: string) {
-    out, code, err = run_capture1("/home/paul/scm/aeb/aeb", target)
-    aeocha.expect_no_spawn_error(fw, err, string.concat(target, " build started"))
-    aeocha.expect_exit(fw, code, 0, string.concat(target, " build exits zero"))
+    out, code, err = run_capture1("aeb", target)
+    testing.expect_no_spawn_error( err, string.concat(target, " build started"))
+    testing.expect_exit( code, 0, string.concat(target, " build exits zero"))
 }
 
 expect_binding_smoke(fw: ptr, target: string, log_name: string, line: string) {
     expect_aeb_target(fw, target)
-    log_path = string.concat("/home/paul/scm/skir/target/.aeb/logs/", log_name)
+    log_path = string.concat("${os.getcwd()}/target/.aeb/logs/", log_name)
     log_text, log_err = fs.read(log_path)
-    aeocha.assert_str_eq(fw, log_err, "", string.concat(target, " log read"))
-    aeocha.assert_contains(fw, log_text, line, string.concat(target, " smoke stdout"))
+    spec.assert_str_eq(log_err, "", string.concat(target, " log read"))
+    spec.assert_contains(log_text, line, string.concat(target, " smoke stdout"))
 }
 
 main() {
-    fw = aeocha.init()
+    fw = spec.init()
 
-    aeocha.describe(fw, "native Skir") {
-        aeocha.describe("schema DSL") {
-            aeocha.it("emits schema IR without a skir intermediate") callback {
+    spec.describe(fw, "native Skir") {
+        spec.describe("schema DSL") {
+            spec.it("emits schema IR without a skir intermediate") callback {
                 out_path = "/tmp/skir_aeocha_schema.json"
                 document(out_path) {
                     structure(record_name("Point")) {
@@ -80,69 +81,69 @@ main() {
                 }
 
                 text, err = fs.read(out_path)
-                aeocha.assert_str_eq(fw, err, "", "schema IR read")
-                aeocha.assert_contains(fw, text, "\"implementation\":\"aether-dsl\"",
+                spec.assert_str_eq(err, "", "schema IR read")
+                spec.assert_contains(text, "\"implementation\":\"aether-dsl\"",
                                        "IR marks DSL implementation")
-                aeocha.assert_contains(fw, text, "\"kind\":\"struct\"", "has struct")
-                aeocha.assert_contains(fw, text, "\"kind\":\"enum\"", "has enum")
-                aeocha.assert_contains(fw, text, "\"name\":\"PerformAction\"",
+                spec.assert_contains(text, "\"kind\":\"struct\"", "has struct")
+                spec.assert_contains(text, "\"kind\":\"enum\"", "has enum")
+                spec.assert_contains(text, "\"name\":\"PerformAction\"",
                                        "has method")
             }
 
-            aeocha.it("exposes compiler-derived effects for audit") callback {
+            spec.it("exposes compiler-derived effects for audit") callback {
                 schema_effects, schema_code, schema_err =
                     run_aetherc_effects("fixtures/greet/schema.ae",
                                         "/tmp/skir_schema_effects_unused.c")
-                aeocha.expect_no_spawn_error(fw, schema_err,
+                testing.expect_no_spawn_error( schema_err,
                                              "schema effects audit started")
-                aeocha.expect_exit(fw, schema_code, 0,
+                testing.expect_exit( schema_code, 0,
                                    "schema effects audit exits zero")
-                aeocha.assert_contains(fw, schema_effects,
+                spec.assert_contains(schema_effects,
                                        "\"skir_schema_field\": { \"pure\": true",
                                        "schema field builder is pure")
-                aeocha.assert_contains(fw, schema_effects,
+                spec.assert_contains(schema_effects,
                                        "\"skir_schema_document\": { \"pure\": false",
                                        "schema document is effectful")
-                aeocha.assert_contains(fw, schema_effects,
+                spec.assert_contains(schema_effects,
                                        "\"reaches\": [\"fs\"]",
                                        "schema document reaches fs only")
 
                 generator_effects, generator_code, generator_err =
                     run_aetherc_effects("generators/skir_bindgen.ae",
                                         "/tmp/skir_bindgen_effects_unused.c")
-                aeocha.expect_no_spawn_error(fw, generator_err,
+                testing.expect_no_spawn_error( generator_err,
                                              "generator effects audit started")
-                aeocha.expect_exit(fw, generator_code, 0,
+                testing.expect_exit( generator_code, 0,
                                    "generator effects audit exits zero")
-                aeocha.assert_contains(fw, generator_effects,
+                spec.assert_contains(generator_effects,
                                        "\"render_generic_module\": { \"pure\": true",
                                        "generic renderer is pure")
-                aeocha.assert_contains(fw, generator_effects,
+                spec.assert_contains(generator_effects,
                                        "\"write_generic_outputs\": { \"pure\": false",
                                        "generic writer is effectful")
-                aeocha.assert_contains(fw, generator_effects,
+                spec.assert_contains(generator_effects,
                                        "\"reaches\": [\"fs\"]",
                                        "generator writer reaches fs only")
             }
         }
 
-        aeocha.describe("CLI") {
-            aeocha.it("prints native version") callback {
-                out, code, err = run_capture1("/home/paul/scm/skir/bin/skir", "version")
-                aeocha.expect_no_spawn_error(fw, err, "skir started")
-                aeocha.expect_exit(fw, code, 0, "version exits zero")
-                aeocha.expect_stdout_contains(fw, out, "v2.0.0-aether.0",
+        spec.describe("CLI") {
+            spec.it("prints native version") callback {
+                out, code, err = run_capture1("${os.getcwd()}/bin/skir", "version")
+                testing.expect_no_spawn_error( err, "skir started")
+                testing.expect_exit( code, 0, "version exits zero")
+                testing.expect_stdout_contains( out, "v2.0.0-aether.0",
                                               "version is native")
             }
 
-            aeocha.it("initializes and generates IR") callback {
+            spec.it("initializes and generates IR") callback {
                 root = "/tmp/skir_aeocha_project_all_generators_typed_schema"
                 mkdir_err = fs.mkdir_p(root)
-                aeocha.assert_str_eq(fw, mkdir_err, "", "temp root created")
-                out_init, code_init, err_init = run_capture2("/home/paul/scm/skir/bin/skir", "init", "--root=${root}")
-                aeocha.expect_no_spawn_error(fw, err_init, "init started")
-                aeocha.expect_exit(fw, code_init, 0, "init exits zero")
-                aeocha.expect_stdout_contains(fw, out_init, "skir.json", "init names config")
+                spec.assert_str_eq(mkdir_err, "", "temp root created")
+                out_init, code_init, err_init = run_capture2("${os.getcwd()}/bin/skir", "init", "--root=${root}")
+                testing.expect_no_spawn_error( err_init, "init started")
+                testing.expect_exit( code_init, 0, "init exits zero")
+                testing.expect_stdout_contains( out_init, "skir.json", "init names config")
 
                 expect_aeb_target(fw, "generators/typescript/.build.ae")
                 expect_aeb_target(fw, "generators/python/.build.ae")
@@ -159,74 +160,74 @@ main() {
                 expect_aeb_target(fw, "generators/moonbit/.build.ae")
 
                 config_path = "${root}/skir.json"
-                config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/typescript\", \"command\": \"/home/paul/scm/skir/target/build/generators/typescript/bin/skir-typescript-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/python\", \"command\": \"/home/paul/scm/skir/target/build/generators/python/bin/skir-python-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/cpp\", \"command\": \"/home/paul/scm/skir/target/build/generators/cpp/bin/skir-cpp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/java\", \"command\": \"/home/paul/scm/skir/target/build/generators/java/bin/skir-java-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/csharp\", \"command\": \"/home/paul/scm/skir/target/build/generators/csharp/bin/skir-csharp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/kotlin\", \"command\": \"/home/paul/scm/skir/target/build/generators/kotlin/bin/skir-kotlin-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/rust\", \"command\": \"/home/paul/scm/skir/target/build/generators/rust/bin/skir-rust-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/go\", \"command\": \"/home/paul/scm/skir/target/build/generators/go/bin/skir-go-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/dart\", \"command\": \"/home/paul/scm/skir/target/build/generators/dart/bin/skir-dart-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/swift\", \"command\": \"/home/paul/scm/skir/target/build/generators/swift/bin/skir-swift-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/gleam\", \"command\": \"/home/paul/scm/skir/target/build/generators/gleam/bin/skir-gleam-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/zig\", \"command\": \"/home/paul/scm/skir/target/build/generators/zig/bin/skir-zig-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/moonbit\", \"command\": \"/home/paul/scm/skir/target/build/generators/moonbit/bin/skir-moonbit-gen\" }\n  ],\n  \"dependencies\": {}\n}\n"
+                config = "{\n  \"generators\": [\n    { \"kind\": \"ir\", \"outDir\": \"./skirout\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/typescript\", \"command\": \"${os.getcwd()}/target/build/generators/typescript/bin/skir-typescript-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/python\", \"command\": \"${os.getcwd()}/target/build/generators/python/bin/skir-python-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/cpp\", \"command\": \"${os.getcwd()}/target/build/generators/cpp/bin/skir-cpp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/java\", \"command\": \"${os.getcwd()}/target/build/generators/java/bin/skir-java-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/csharp\", \"command\": \"${os.getcwd()}/target/build/generators/csharp/bin/skir-csharp-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/kotlin\", \"command\": \"${os.getcwd()}/target/build/generators/kotlin/bin/skir-kotlin-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/rust\", \"command\": \"${os.getcwd()}/target/build/generators/rust/bin/skir-rust-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/go\", \"command\": \"${os.getcwd()}/target/build/generators/go/bin/skir-go-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/dart\", \"command\": \"${os.getcwd()}/target/build/generators/dart/bin/skir-dart-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/swift\", \"command\": \"${os.getcwd()}/target/build/generators/swift/bin/skir-swift-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/gleam\", \"command\": \"${os.getcwd()}/target/build/generators/gleam/bin/skir-gleam-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/zig\", \"command\": \"${os.getcwd()}/target/build/generators/zig/bin/skir-zig-gen\" },\n    { \"kind\": \"external\", \"outDir\": \"./bindings/moonbit\", \"command\": \"${os.getcwd()}/target/build/generators/moonbit/bin/skir-moonbit-gen\" }\n  ],\n  \"dependencies\": {}\n}\n"
                 write_err = fs.write(config_path, config)
-                aeocha.assert_str_eq(fw, write_err, "", "generator config written")
+                spec.assert_str_eq(write_err, "", "generator config written")
 
-                out_gen, code_gen, err_gen = run_capture2("/home/paul/scm/skir/bin/skir", "gen", "--root=${root}")
-                aeocha.expect_no_spawn_error(fw, err_gen, "gen started")
-                aeocha.expect_exit(fw, code_gen, 0, "gen exits zero")
-                aeocha.expect_stdout_contains(fw, out_gen, "skir-ir.json", "gen names IR")
+                out_gen, code_gen, err_gen = run_capture2("${os.getcwd()}/bin/skir", "gen", "--root=${root}")
+                testing.expect_no_spawn_error( err_gen, "gen started")
+                testing.expect_exit( code_gen, 0, "gen exits zero")
+                testing.expect_stdout_contains( out_gen, "skir-ir.json", "gen names IR")
 
                 ir_path = "${root}/skirout/skir-ir.json"
                 ir, read_err = fs.read(ir_path)
-                aeocha.assert_str_eq(fw, read_err, "", "IR file read")
-                aeocha.assert_contains(fw, ir, "\"implementation\":\"aether-dsl\"",
+                spec.assert_str_eq(read_err, "", "IR file read")
+                spec.assert_contains(ir, "\"implementation\":\"aether-dsl\"",
                                        "IR marks Aether DSL implementation")
-                aeocha.assert_contains(fw, ir, "\"name\":\"Greeting\"",
+                spec.assert_contains(ir, "\"name\":\"Greeting\"",
                                        "IR includes initialized declaration")
 
                 bindings_ts_root = "${root}/bindings/typescript/index.ts"
                 bindings_ts_mod = "${root}/bindings/typescript/schema.ts"
                 bindings_py_root = "${root}/bindings/python/skir/__init__.py"
                 bindings_py_mod = "${root}/bindings/python/skir/schema.py"
-                aeocha.assert_true(fw, fs.exists(bindings_ts_root), "ts root generated")
-                aeocha.assert_true(fw, fs.exists(bindings_ts_mod), "ts module generated")
-                aeocha.assert_true(fw, fs.exists(bindings_py_root), "python root generated")
-                aeocha.assert_true(fw, fs.exists(bindings_py_mod), "python module generated")
+                spec.assert_true(fs.exists(bindings_ts_root), "ts root generated")
+                spec.assert_true(fs.exists(bindings_ts_mod), "ts module generated")
+                spec.assert_true(fs.exists(bindings_py_root), "python root generated")
+                spec.assert_true(fs.exists(bindings_py_mod), "python module generated")
                 ts_text, ts_err = fs.read(bindings_ts_mod)
-                aeocha.assert_str_eq(fw, ts_err, "", "TS output read")
-                aeocha.assert_contains(fw, ts_text, "export interface Greeting", "ts interface")
+                spec.assert_str_eq(ts_err, "", "TS output read")
+                spec.assert_contains(ts_text, "export interface Greeting", "ts interface")
                 py_text, py_err = fs.read(bindings_py_mod)
-                aeocha.assert_str_eq(fw, py_err, "", "Python output read")
-                aeocha.assert_contains(fw, py_text, "class Greeting", "python dataclass")
+                spec.assert_str_eq(py_err, "", "Python output read")
+                spec.assert_contains(py_text, "class Greeting", "python dataclass")
 
                 cpp_text, cpp_err = fs.read("${root}/bindings/cpp/schema.hpp")
-                aeocha.assert_str_eq(fw, cpp_err, "", "C++ output read")
-                aeocha.assert_contains(fw, cpp_text, "struct Greeting", "cpp struct")
+                spec.assert_str_eq(cpp_err, "", "C++ output read")
+                spec.assert_contains(cpp_text, "struct Greeting", "cpp struct")
                 java_text, java_err = fs.read("${root}/bindings/java/schema.java")
-                aeocha.assert_str_eq(fw, java_err, "", "Java output read")
-                aeocha.assert_contains(fw, java_text, "record Greeting", "java record")
+                spec.assert_str_eq(java_err, "", "Java output read")
+                spec.assert_contains(java_text, "record Greeting", "java record")
                 csharp_text, csharp_err = fs.read("${root}/bindings/csharp/schema.cs")
-                aeocha.assert_str_eq(fw, csharp_err, "", "C# output read")
-                aeocha.assert_contains(fw, csharp_text, "record Greeting", "csharp record")
+                spec.assert_str_eq(csharp_err, "", "C# output read")
+                spec.assert_contains(csharp_text, "record Greeting", "csharp record")
                 kotlin_text, kotlin_err = fs.read("${root}/bindings/kotlin/schema.kt")
-                aeocha.assert_str_eq(fw, kotlin_err, "", "Kotlin output read")
-                aeocha.assert_contains(fw, kotlin_text, "data class Greeting", "kotlin data class")
+                spec.assert_str_eq(kotlin_err, "", "Kotlin output read")
+                spec.assert_contains(kotlin_text, "data class Greeting", "kotlin data class")
                 rust_text, rust_err = fs.read("${root}/bindings/rust/schema.rs")
-                aeocha.assert_str_eq(fw, rust_err, "", "Rust output read")
-                aeocha.assert_contains(fw, rust_text, "pub struct Greeting", "rust struct")
+                spec.assert_str_eq(rust_err, "", "Rust output read")
+                spec.assert_contains(rust_text, "pub struct Greeting", "rust struct")
                 go_text, go_err = fs.read("${root}/bindings/go/schema.go")
-                aeocha.assert_str_eq(fw, go_err, "", "Go output read")
-                aeocha.assert_contains(fw, go_text, "type Greeting struct", "go struct")
+                spec.assert_str_eq(go_err, "", "Go output read")
+                spec.assert_contains(go_text, "type Greeting struct", "go struct")
                 dart_text, dart_err = fs.read("${root}/bindings/dart/schema.dart")
-                aeocha.assert_str_eq(fw, dart_err, "", "Dart output read")
-                aeocha.assert_contains(fw, dart_text, "class Greeting", "dart class")
+                spec.assert_str_eq(dart_err, "", "Dart output read")
+                spec.assert_contains(dart_text, "class Greeting", "dart class")
                 swift_text, swift_err = fs.read("${root}/bindings/swift/schema.swift")
-                aeocha.assert_str_eq(fw, swift_err, "", "Swift output read")
-                aeocha.assert_contains(fw, swift_text, "struct Greeting", "swift struct")
+                spec.assert_str_eq(swift_err, "", "Swift output read")
+                spec.assert_contains(swift_text, "struct Greeting", "swift struct")
                 gleam_text, gleam_err = fs.read("${root}/bindings/gleam/schema.gleam")
-                aeocha.assert_str_eq(fw, gleam_err, "", "Gleam output read")
-                aeocha.assert_contains(fw, gleam_text, "pub type Greeting", "gleam type")
+                spec.assert_str_eq(gleam_err, "", "Gleam output read")
+                spec.assert_contains(gleam_text, "pub type Greeting", "gleam type")
                 zig_text, zig_err = fs.read("${root}/bindings/zig/schema.zig")
-                aeocha.assert_str_eq(fw, zig_err, "", "Zig output read")
-                aeocha.assert_contains(fw, zig_text, "pub const Greeting", "zig struct")
+                spec.assert_str_eq(zig_err, "", "Zig output read")
+                spec.assert_contains(zig_text, "pub const Greeting", "zig struct")
                 moonbit_text, moonbit_err = fs.read("${root}/bindings/moonbit/schema.mbt")
-                aeocha.assert_str_eq(fw, moonbit_err, "", "MoonBit output read")
-                aeocha.assert_contains(fw, moonbit_text, "struct Greeting", "moonbit struct")
+                spec.assert_str_eq(moonbit_err, "", "MoonBit output read")
+                spec.assert_contains(moonbit_text, "struct Greeting", "moonbit struct")
             }
 
-            aeocha.it("builds generated binding smoke leaves with stdout checks") callback {
+            spec.it("builds generated binding smoke leaves with stdout checks") callback {
                 expect_binding_smoke(fw, "bindings/typescript/.build.ae",
                                      "bindings_typescript.log",
                                      "typescript Greeting.message=Hello")
@@ -249,5 +250,5 @@ main() {
         }
     }
 
-    aeocha.run_summary(fw)
+    return spec.run_summary(fw)
 }

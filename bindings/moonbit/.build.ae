@@ -1,4 +1,4 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import moonbit
 import std.map
@@ -6,26 +6,28 @@ import std.os
 import std.path
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "moon:0")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/moonbit/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("moon:0")
+        dep("aether/.build.ae")
+        dep("generators/moonbit/.build.ae")
 
-    project = binding_build.prepare_project(b, "moonbit")
-    if project == "" { return 1 }
-    mod_json = "{\n  \"name\": \"skir/bindings-smoke\",\n  \"version\": \"0.1.0\"\n}\n"
-    pkg_json = "{\n  \"is-main\": false,\n  \"import\": []\n}\n"
-    if binding_build.write_text(b, path.join(project, "moon.mod.json"), mod_json) != 0 { return 1 }
-    src_dir = path.join(project, "src")
-    if binding_build.write_text(b, path.join(src_dir, "moon.pkg.json"), pkg_json) != 0 { return 1 }
-    _copy = os.system("cp '${project}/schema.mbt' '${src_dir}/schema.mbt'")
-    smoke = "fn main {\n  let greeting = Greeting::{ message: \"Hello\" }\n  println(\"moonbit Greeting.message=\\{greeting.message}\")\n}\n"
-    if binding_build.write_text(b, path.join(src_dir, "main.mbt"), smoke) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "moonbit")
+        if project == "" { return 1 }
+        mod_json = "{\n  \"name\": \"skir/bindings-smoke\",\n  \"version\": \"0.1.0\"\n}\n"
+        pkg_json = "{\n  \"is-main\": false,\n  \"import\": []\n}\n"
+        if binding_build.write_text(b, path.join(project, "moon.mod.json"), mod_json) != 0 { return 1 }
+        src_dir = path.join(project, "src")
+        if binding_build.write_text(b, path.join(src_dir, "moon.pkg.json"), pkg_json) != 0 { return 1 }
+        _copy = os.system("cp '${project}/schema.mbt' '${src_dir}/schema.mbt'")
+        smoke = "fn main {\n  let greeting = Greeting::{ message: \"Hello\" }\n  println(\"moonbit Greeting.message=\\{greeting.message}\")\n}\n"
+        if binding_build.write_text(b, path.join(src_dir, "main.mbt"), smoke) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = moonbit.install(b)
-    if rc != 0 { return rc }
-    check_rc = moonbit.check(b)
-    if check_rc != 0 { return check_rc }
-    return os.system("cd '${project}' && moon run src")
+        _src = map.put(b, "source_dir", project)
+        rc = moonbit.install()
+        if rc != 0 { return rc }
+        check_rc = moonbit.check()
+        if check_rc != 0 { return check_rc }
+        return os.system("cd '${project}' && moon run src")
+    }
 }

@@ -1,10 +1,12 @@
-import build
+import bldr
 import aether (source)
 
 aeb(cap) {
-    b = build.start()
+    bldr.build() {
 
-    aether.program_test(b) {
+    aether.program_test() {
         source("tests/pre_commit.ae")
+    }
+        return 0
     }
 }

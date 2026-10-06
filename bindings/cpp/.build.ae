@@ -1,4 +1,4 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import cpp (source, include, std)
 import std.map
@@ -6,22 +6,24 @@ import std.os
 import std.path
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "gcc:12")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/cpp/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("gcc:12")
+        dep("aether/.build.ae")
+        dep("generators/cpp/.build.ae")
 
-    project = binding_build.prepare_project(b, "cpp")
-    if project == "" { return 1 }
-    main_cpp = "#include <iostream>\n#include \"schema.hpp\"\n\nint main() {\n    Greeting greeting{\"Hello\"};\n    std::cout << \"cpp Greeting.message=\" << greeting.message << \"\\n\";\n    return greeting.message.empty() ? 1 : 0;\n}\n"
-    if binding_build.write_text(b, path.join(project, "main.cpp"), main_cpp) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "cpp")
+        if project == "" { return 1 }
+        main_cpp = "#include <iostream>\n#include \"schema.hpp\"\n\nint main() {\n    Greeting greeting{\"Hello\"};\n    std::cout << \"cpp Greeting.message=\" << greeting.message << \"\\n\";\n    return greeting.message.empty() ? 1 : 0;\n}\n"
+        if binding_build.write_text(b, path.join(project, "main.cpp"), main_cpp) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = cpp.program(b) {
+        _src = map.put(b, "source_dir", project)
+        rc = cpp.program() {
         source("main.cpp")
         include(".")
         std("c++17")
+        }
+        if rc != 0 { return rc }
+        return os.system("'${bldr.target_dir(b)}/cpp'")
     }
-    if rc != 0 { return rc }
-    return os.system("'${build.target_dir(b)}/cpp'")
 }

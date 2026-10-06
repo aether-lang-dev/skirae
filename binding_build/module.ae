@@ -1,17 +1,17 @@
-import build
+import bldr
 import std.fs
 import std.os
 import std.path
 import std.string
 
 prepare_project(ctx: ptr, lang: string) -> string {
-    root = build.root(ctx)
-    target = build.target_dir(ctx)
+    root = bldr.root(ctx)
+    target = bldr.target_dir(ctx)
     project = path.join(target, "project")
     _clean = os.system("rm -rf '${project}'")
     mkdir_err = fs.mkdir_p(project)
     if mkdir_err != "" {
-        build.fail(ctx, string.concat("cannot create generated project: ", project))
+        bldr.fail(ctx, string.concat("cannot create generated project: ", project))
         return ""
     }
 
@@ -21,12 +21,12 @@ prepare_project(ctx: ptr, lang: string) -> string {
     build_cmd = "ae build '${fixture_src}' --lib '${root}' -o '${fixture_bin}'"
     build_rc = os.system(build_cmd)
     if build_rc != 0 {
-        build.fail(ctx, "fixture schema build failed")
+        bldr.fail(ctx, "fixture schema build failed")
         return ""
     }
     fixture_rc = os.system("'${fixture_bin}' '${ir_path}'")
     if fixture_rc != 0 {
-        build.fail(ctx, "fixture schema run failed")
+        bldr.fail(ctx, "fixture schema run failed")
         return ""
     }
 
@@ -38,7 +38,7 @@ prepare_project(ctx: ptr, lang: string) -> string {
     cmd = "'${gen}' '${ir_path}' '${project}' '${lang}'"
     rc = os.system(cmd)
     if rc != 0 {
-        build.fail(ctx, string.concat("generator failed for ", lang))
+        bldr.fail(ctx, string.concat("generator failed for ", lang))
         return ""
     }
     return project
@@ -48,12 +48,12 @@ write_text(ctx: ptr, path_str: string, body: string) -> int {
     parent = path.dirname(path_str)
     mkdir_err = fs.mkdir_p(parent)
     if mkdir_err != "" {
-        build.fail(ctx, string.concat("cannot create directory: ", parent))
+        bldr.fail(ctx, string.concat("cannot create directory: ", parent))
         return 1
     }
     write_err = fs.write(path_str, body)
     if write_err != "" {
-        build.fail(ctx, string.concat("cannot write file: ", path_str))
+        bldr.fail(ctx, string.concat("cannot write file: ", path_str))
         return 1
     }
     return 0

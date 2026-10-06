@@ -1,26 +1,28 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import std.map
 import std.path
 import zig (output)
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "zig:0")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/zig/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("zig:0")
+        dep("aether/.build.ae")
+        dep("generators/zig/.build.ae")
 
-    project = binding_build.prepare_project(b, "zig")
-    if project == "" { return 1 }
-    main_zig = "const std = @import(\"std\");\nconst schema = @import(\"../schema.zig\");\n\npub fn main() !void {\n    const greeting = schema.Greeting{ .message = \"Hello\" };\n    const stdout = std.io.getStdOut().writer();\n    try stdout.print(\"zig Greeting.message={s}\\n\", .{greeting.message});\n}\n"
-    build_zig = "const std = @import(\"std\");\n\npub fn build(b: *std.Build) void {\n    const target = b.standardTargetOptions(.{});\n    const optimize = b.standardOptimizeOption(.{});\n    const exe = b.addExecutable(.{ .name = \"skir-zig-smoke\", .root_source_file = b.path(\"src/main.zig\"), .target = target, .optimize = optimize });\n    b.installArtifact(exe);\n}\n"
-    if binding_build.write_text(b, path.join(path.join(project, "src"), "main.zig"), main_zig) != 0 { return 1 }
-    if binding_build.write_text(b, path.join(project, "build.zig"), build_zig) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "zig")
+        if project == "" { return 1 }
+        main_zig = "const std = @import(\"std\");\nconst schema = @import(\"../schema.zig\");\n\npub fn main() !void {\n    const greeting = schema.Greeting{ .message = \"Hello\" };\n    const stdout = std.io.getStdOut().writer();\n    try stdout.print(\"zig Greeting.message={s}\\n\", .{greeting.message});\n}\n"
+        build_zig = "const std = @import(\"std\");\n\npub fn build(b: *std.Build) void {\n    const target = b.standardTargetOptions(.{});\n    const optimize = b.standardOptimizeOption(.{});\n    const exe = b.addExecutable(.{ .name = \"skir-zig-smoke\", .root_source_file = b.path(\"src/main.zig\"), .target = target, .optimize = optimize });\n    b.installArtifact(exe);\n}\n"
+        if binding_build.write_text(b, path.join(path.join(project, "src"), "main.zig"), main_zig) != 0 { return 1 }
+        if binding_build.write_text(b, path.join(project, "bldr.zig"), build_zig) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = zig.build_pkg(b) {
+        _src = map.put(b, "source_dir", project)
+        rc = zig.build_pkg() {
         output("skir-zig-smoke")
+        }
+        if rc != 0 { return rc }
+        return os.system("cd '${project}' && zig build run")
     }
-    if rc != 0 { return rc }
-    return os.system("cd '${project}' && zig build run")
 }

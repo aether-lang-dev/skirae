@@ -1,4 +1,4 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import go (env_var)
 import std.map
@@ -6,23 +6,25 @@ import std.os
 import std.path
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "go:1")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/go/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("go:1")
+        dep("aether/.build.ae")
+        dep("generators/go/.build.ae")
 
-    project = binding_build.prepare_project(b, "go")
-    if project == "" { return 1 }
-    gomod = "module example.com/skirbindings\n\ngo 1.22\n"
-    if binding_build.write_text(b, path.join(project, "go.mod"), gomod) != 0 { return 1 }
-    smoke = "package skirbindings\n\nimport (\n  \"fmt\"\n  \"testing\"\n)\n\nfunc TestSmoke(t *testing.T) {\n  greeting := Greeting{message: \"Hello\"}\n  fmt.Println(\"go Greeting.message=\" + greeting.message)\n}\n"
-    if binding_build.write_text(b, path.join(project, "schema_test.go"), smoke) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "go")
+        if project == "" { return 1 }
+        gomod = "module example.com/skirbindings\n\ngo 1.22\n"
+        if binding_build.write_text(b, path.join(project, "go.mod"), gomod) != 0 { return 1 }
+        smoke = "package skirbindings\n\nimport (\n  \"fmt\"\n  \"testing\"\n)\n\nfunc TestSmoke(t *testing.T) {\n  greeting := Greeting{message: \"Hello\"}\n  fmt.Println(\"go Greeting.message=\" + greeting.message)\n}\n"
+        if binding_build.write_text(b, path.join(project, "schema_test.go"), smoke) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    cache_dir = path.join(build.target_dir(b), "gocache")
-    rc = go.go_test(b) {
-        env_var(string.concat("GOCACHE=", cache_dir))
+        _src = map.put(b, "source_dir", project)
+        cache_dir = path.join(bldr.target_dir(b), "gocache")
+        rc = go.go_test() {
+            env_var(string.concat("GOCACHE=", cache_dir))
+        }
+        if rc != 0 { return rc }
+        return os.system("cd '${project}' && GOCACHE='${cache_dir}' go test -v")
     }
-    if rc != 0 { return rc }
-    return os.system("cd '${project}' && GOCACHE='${cache_dir}' go test -v")
 }

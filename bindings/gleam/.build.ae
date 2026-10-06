@@ -1,4 +1,4 @@
-import build (dep, prereq)
+import bldr (dep, prereq)
 import binding_build
 import gleam
 import std.map
@@ -6,25 +6,27 @@ import std.os
 import std.path
 
 aeb(cap) {
-    b = build.start()
-    prereq(b, "gleam:1")
-    dep(b, "aether/.build.ae")
-    dep(b, "generators/gleam/.build.ae")
+    bldr.build() {
+        b = builder_context()
+        prereq("gleam:1")
+        dep("aether/.build.ae")
+        dep("generators/gleam/.build.ae")
 
-    project = binding_build.prepare_project(b, "gleam")
-    if project == "" { return 1 }
-    gleam_toml = "name = \"skir_bindings_smoke\"\nversion = \"0.1.0\"\ntarget = \"erlang\"\n\n[dependencies]\n"
-    if binding_build.write_text(b, path.join(project, "gleam.toml"), gleam_toml) != 0 { return 1 }
-    src_dir = path.join(project, "src")
-    if binding_build.write_text(b, path.join(src_dir, ".keep"), "") != 0 { return 1 }
-    _copy = os.system("cp '${project}/schema.gleam' '${src_dir}/schema.gleam'")
-    smoke = "import gleam/io\nimport schema\n\npub fn main() {\n  let greeting = schema.Greeting(message: \"Hello\")\n  io.println(\"gleam Greeting.message=\" <> greeting.message)\n}\n"
-    if binding_build.write_text(b, path.join(src_dir, "smoke.gleam"), smoke) != 0 { return 1 }
+        project = binding_build.prepare_project(b, "gleam")
+        if project == "" { return 1 }
+        gleam_toml = "name = \"skir_bindings_smoke\"\nversion = \"0.1.0\"\ntarget = \"erlang\"\n\n[dependencies]\n"
+        if binding_build.write_text(b, path.join(project, "gleam.toml"), gleam_toml) != 0 { return 1 }
+        src_dir = path.join(project, "src")
+        if binding_build.write_text(b, path.join(src_dir, ".keep"), "") != 0 { return 1 }
+        _copy = os.system("cp '${project}/schema.gleam' '${src_dir}/schema.gleam'")
+        smoke = "import gleam/io\nimport schema\n\npub fn main() {\n  let greeting = schema.Greeting(message: \"Hello\")\n  io.println(\"gleam Greeting.message=\" <> greeting.message)\n}\n"
+        if binding_build.write_text(b, path.join(src_dir, "smoke.gleam"), smoke) != 0 { return 1 }
 
-    _src = map.put(b, "source_dir", project)
-    rc = gleam.deps(b)
-    if rc != 0 { return rc }
-    build_rc = gleam.build(b)
-    if build_rc != 0 { return build_rc }
-    return os.system("cd '${project}' && gleam run -m smoke")
+        _src = map.put(b, "source_dir", project)
+        rc = gleam.deps()
+        if rc != 0 { return rc }
+        build_rc = gleam.build()
+        if build_rc != 0 { return build_rc }
+        return os.system("cd '${project}' && gleam run -m smoke")
+    }
 }
