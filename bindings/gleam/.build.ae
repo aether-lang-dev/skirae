@@ -14,7 +14,7 @@ aeb(cap) {
 
         project = binding_build.prepare_project(b, "gleam")
         if project == "" { return 1 }
-        gleam_toml = "name = \"skir_bindings_smoke\"\nversion = \"0.1.0\"\ntarget = \"erlang\"\n\n[dependencies]\n"
+        gleam_toml = "name = \"skir_bindings_smoke\"\nversion = \"0.1.0\"\ntarget = \"erlang\"\n\n[dependencies]\ngleam_stdlib = \">= 0.44.0 and < 2.0.0\"\n"
         if binding_build.write_text(b, path.join(project, "gleam.toml"), gleam_toml) != 0 { return 1 }
         src_dir = path.join(project, "src")
         if binding_build.write_text(b, path.join(src_dir, ".keep"), "") != 0 { return 1 }
