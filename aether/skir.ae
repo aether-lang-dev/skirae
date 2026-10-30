@@ -180,7 +180,7 @@ collect_ir(root: string) -> (string, int) {
                                 if first_module == 0 {
                                     out = string.concat(out, ",")
                                 }
-                                mod_text, stringify_err = json.stringify(mod_v)
+                                mod_text, stringify_err = json.encode(mod_v)
                                 if stringify_err != "" {
                                     println(string.concat("schema IR stringify failed: ", full_path))
                                     failed = 1
