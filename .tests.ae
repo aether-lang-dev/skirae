@@ -4,7 +4,7 @@ import aether (source)
 aeb(cap) {
     bldr.build() {
     aether.program_test() {
-        source("tests/skir_aeocha.ae")
+        source("tests/skir_spec.ae")
     }
         return 0
     }

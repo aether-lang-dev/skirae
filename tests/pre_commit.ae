@@ -1,52 +1,53 @@
-import aeocha
+import std.spec
+import std.os.testing
 import std.list
 import std.os
 
-run_step(fw: ptr, label: string, prog: string, argv: ptr, env: ptr) -> string {
+run_step(label: string, prog: string, argv: ptr, env: ptr) -> string {
     out, code, err = os.run_capture(prog, argv, env)
-    aeocha.expect_no_spawn_error(fw, err, "${label} started")
-    aeocha.expect_exit(fw, code, 0, "${label} exits zero")
+    testing.expect_no_spawn_error(err, "${label} started")
+    testing.expect_exit(code, 0, "${label} exits zero")
     return out
 }
 
 main() {
-    fw = aeocha.init()
+    fw = spec.init()
 
-    aeocha.describe(fw, "pre-commit") {
-        aeocha.it("checks and smokes the native toolchain") callback {
+    spec.describe(fw, "pre-commit") {
+        spec.it("checks and smokes the native toolchain") callback {
             setenv_err = os.setenv("AETHER_HOME", "")
-            aeocha.assert_str_eq(fw, setenv_err, "", "AETHER_HOME set")
+            spec.assert_str_eq(setenv_err, "", "AETHER_HOME set")
 
             check_args = list.new()
             list.add(check_args, "check")
             list.add(check_args, "aether/skir.ae")
-            run_step(fw, "ae check skir", "ae", check_args, null)
+            run_step("ae check skir", "ae", check_args, null)
 
             dsl_args = list.new()
             list.add(dsl_args, "build")
             list.add(dsl_args, "aether/examples/schema_dsl.ae")
             list.add(dsl_args, "-o")
             list.add(dsl_args, "/tmp/skir_schema_dsl_demo")
-            run_step(fw, "build schema DSL example", "ae", dsl_args, null)
+            run_step("build schema DSL example", "ae", dsl_args, null)
 
             test_args = list.new()
             list.add(test_args, "build")
-            list.add(test_args, "tests/skir_aeocha.ae")
+            list.add(test_args, "tests/skir_spec.ae")
             list.add(test_args, "-o")
-            list.add(test_args, "/tmp/skir_aeocha_tests")
-            run_step(fw, "build Aeocha tests", "ae", test_args, null)
+            list.add(test_args, "/tmp/skir_spec_tests")
+            run_step("build spec tests", "ae", test_args, null)
 
-            run_step(fw, "run Aeocha tests", "/tmp/skir_aeocha_tests",
+            run_step("run spec tests", "/tmp/skir_spec_tests",
                      list.new(), null)
 
             version_args = list.new()
             list.add(version_args, "version")
-            version_out = run_step(fw, "skir version", "bin/skir",
+            version_out = run_step("skir version", "bin/skir",
                                    version_args, null)
-            aeocha.assert_contains(fw, version_out, "v2.0.0-aether.0",
-                                   "native version printed")
+            spec.assert_contains(version_out, "v2.0.0-aether.0",
+                                 "native version printed")
         }
     }
 
-    aeocha.run_summary(fw)
+    return spec.run_summary(fw)
 }
