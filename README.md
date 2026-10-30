@@ -10,7 +10,7 @@ experiment in replacing the Node/TypeScript core with:
 
 - Aether for the CLI and schema authoring DSL.
 - aeb for build and test targets.
-- Aeocha for BDD-style tests.
+- Aether's built-in `std.spec` for BDD-style tests.
 - External generator binaries for language-specific bindings.
 
 ## Achievements
@@ -37,12 +37,13 @@ The port has changed the shape of the project substantially:
 - **Binding smoke leaves**: each `bindings/<language>/.build.ae` leaf generates
   a fixture binding from `fixtures/greet/schema.ae`, builds it with the
   matching aeb language SDK, and declares its toolchain with
-  `build.prereq(...)` for `aeb --prereqs` / remote-toolchain routing.
+  `prereq(...)` for `aeb --prereqs` / remote-toolchain routing.
 - **Reference-only Node sources**: local `genrs/` clones can be used to compare
   against the historical TypeScript generators, but they are ignored and not
   part of this repository.
-- **aeb-native build/test targets**: `.build.ae` builds the CLI leaf and
-  `.tests.ae` runs Aeocha tests.
+- **aeb-native build/test targets**: `.build.ae` builds the CLI leaf,
+  `.tests.ae` runs the `std.spec` suite, and `.pre-commit.ae` runs the
+  pre-commit checks.
 
 Local rough timing, not a benchmark: after the binary already exists,
 `bin/skir version` runs in about 5-6 ms on this machine. A first wrapper run that
@@ -64,22 +65,28 @@ bin/skir version
 ## Build And Test
 
 ```sh
-/home/paul/scm/aeb/aeb .build.ae
-/home/paul/scm/aeb/aeb .tests.ae
+aeb .build.ae
+aeb .tests.ae
+aeb .pre-commit.ae
 ```
+
+Use whichever `aeb` you have installed; programs build with the `ae` on your
+`PATH`. `pre_commit_setup.sh` installs a git hook that runs `aeb .pre-commit.ae`.
 
 The root build target builds the native CLI leaf. Generator binaries are built
 through explicit leaves such as:
 
 ```sh
-/home/paul/scm/aeb/aeb generators/typescript/.build.ae
-/home/paul/scm/aeb/aeb bindings/typescript/.build.ae
-/home/paul/scm/aeb/aeb --prereqs bindings/typescript/.build.ae
+aeb generators/typescript/.build.ae
+aeb bindings/typescript/.build.ae
+aeb --prereqs bindings/typescript/.build.ae
 ```
 
-The test target compiles and runs `tests/skir_aeocha.ae`, which exercises the
-schema DSL, the native CLI smoke path, generator handoff for every supported
-language target, and binding smoke leaves for locally available toolchains.
+The test target compiles and runs `tests/skir_spec.ae`, a `std.spec` suite
+that exercises the schema DSL, the native CLI smoke path, generator handoff for
+every supported language target, and the C++, Go, Java, Python, Rust and
+TypeScript binding smoke leaves. The other binding leaves are built on their
+own, given their toolchains.
 
 ## Schema DSL
 
@@ -106,10 +113,12 @@ and module imports when useful.
 ## Project Layout
 
 ```text
-skir.json
-skir-src/
-  hello_world.ae
+aether/
+  skir.ae
+  examples/
+skir_schema/
 generators/
+  skir_bindgen.ae
   cpp/
   csharp/
   dart/
@@ -139,6 +148,18 @@ bindings/
   zig/
 fixtures/
   greet/
+binding_build/
+tests/
+  skir_spec.ae
+  pre_commit.ae
+```
+
+`skir init` creates a project of its own, outside this layout:
+
+```text
+skir.json
+skir-src/
+  hello_world.ae
 ```
 
 `skir gen` runs schema programs under `skir-src/**/*.ae` and writes:
@@ -185,5 +206,5 @@ Python generator emits `pyproject.toml`.
 
 This is speculative and intentionally incomplete. The current goal is to show a
 coherent Aether-native toolchain shape: Aether CLI, Aether schema DSL, aeb
-targets, Aeocha tests, no Node runtime dependency, and no `.skir` text
+targets, `std.spec` tests, no Node runtime dependency, and no `.skir` text
 intermediate on the main path.

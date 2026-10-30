@@ -8,8 +8,8 @@ generator is a separate native binary. It keeps the original ISC license and
 credit, and it is **not** a contribution back to upstream Skir.
 
 Read `README.md` for the pitch and `docs/aether-port.md` for the port's state.
-When this file, the README and the code disagree, the code wins; several
-README details are stale (see "Known drift" below).
+When this file, the README and the code disagree, the code wins (see "Known
+drift" below).
 
 ## The shape in one paragraph
 
@@ -36,9 +36,8 @@ built once per language under a different output name by
 | `fixtures/greet/schema.ae` | The fixture schema the binding leaves use. |
 | `bin/skir` | Shell wrapper: rebuilds `build/skir-ae` with `ae build` when `aether/skir.ae` is newer, then runs it. |
 | `.build.ae` | Root aeb target: depends on `aether/.build.ae`. |
-| `.tests.ae` | Test target: `aether.program_test` over `tests/skir_aeocha.ae`. |
+| `.tests.ae` | Test target: `aether.program_test` over `tests/skir_spec.ae`. |
 | `.pre-commit.ae` | Pre-commit target: `aether.program_test` over `tests/pre_commit.ae`. `pre_commit_setup.sh` installs the git hook. |
-| `aeocha.ae` | A **local copy of the retired aeocha** test framework, kept only for `tests/pre_commit.ae` (see "Tests"). |
 | `docs/aeb-requests.md` | What skirae needed from aeb, and what was resolved. |
 | `genrs/`, `geners/` (gitignored) | Optional local clones of the historical TypeScript generators, for reference only. Never commit them. |
 
@@ -54,36 +53,30 @@ aeb --prereqs bindings/typescript/.build.ae   # which toolchain it needs
 bin/skir version                         # the CLI, rebuilt on demand
 ```
 
-- The README and `pre_commit_setup.sh` call aeb by the absolute path
-  `/home/paul/scm/aeb/aeb`. That's the maintainer's machine; use whatever `aeb`
-  you have.
 - aeb writes to `target/`; `bin/skir` writes to `build/`. Both are gitignored.
 - Build files use aeb's `bldr` module and the `aeb(cap) { bldr.build() { … } }`
   entry point (the last migration, `a681452`, moved them off aeb's retired
   `build` module). Follow that shape for new leaves.
 - A binding leaf needs its language's toolchain (Node, Python, a JDK, Cargo, …).
-  `tests/skir_aeocha.ae` runs the binding smoke leaves only for toolchains
-  present locally, so a missing toolchain skips rather than fails.
-- skirae was last committed on 2026-10-06. Aether has moved on since (it is in
-  the 0.86x releases). If something fails to build, check the Aether
+  `tests/skir_spec.ae` runs six binding leaves unconditionally (C++, Go, Java,
+  Python, Rust, TypeScript), so a missing one of those toolchains fails the
+  suite. The other seven leaves are not in the suite; build them by hand.
+- skirae was last brought up to date with Aether 0.860.0 and aeb v0.339. If
+  something fails to build with a newer one, check the Aether
   `CHANGELOG.md` for a renamed or reshaped API before assuming skirae is wrong.
 
 ## Tests
 
-- **`tests/skir_aeocha.ae` uses `std.spec`**, Aether's built-in successor to
-  aeocha (`spec.describe` / `spec.it`), despite the file's name. It covers the
-  schema DSL, the CLI smoke path, generator handoff for every language, and the
-  binding smoke leaves. Write new tests here, with `std.spec`.
-- **`tests/pre_commit.ae` still imports the local `aeocha.ae` copy.** It runs
-  `ae check` on the CLI and builds the DSL example. It clears `AETHER_HOME`
-  first, so the installed Aether's standard library is used, not a source
-  tree's.
-- **Pending migration:** move `tests/pre_commit.ae` to `std.spec`, then delete
-  `aeocha.ae`. That also removes skirae's only use of `std.ipc`: the copied
-  aeocha writes a test report to `ipc.parent_channel()` when aeb spawns it, and
-  aeb no longer reads that report (it reads `std.spec`'s file report,
-  `AE_SPEC_REPORT`). Renaming `tests/skir_aeocha.ae` to something like
-  `tests/skir_spec.ae` (and updating `.tests.ae`) belongs in the same change.
+- Both test programs use **`std.spec`**, Aether's built-in successor to the
+  retired aeocha (`spec.describe` / `spec.it`). aeb reads `std.spec`'s file
+  report (`AE_SPEC_REPORT`).
+- **`tests/skir_spec.ae`** is the main suite. It covers the schema DSL, the CLI
+  smoke path, generator handoff for every language, and six binding smoke
+  leaves. Write new tests here.
+- **`tests/pre_commit.ae`** runs `ae check` on the CLI, builds the DSL example,
+  builds and runs `tests/skir_spec.ae`, and checks `bin/skir version`. It
+  clears `AETHER_HOME` first, so the installed Aether's standard library is
+  used, not a source tree's.
 
 ## Conventions
 
@@ -106,11 +99,8 @@ bin/skir version                         # the CLI, rebuilt on demand
 
 ## Known drift
 
-- The README says tests use "Aeocha"; the main suite uses `std.spec` (above).
-- The README's layout and "Config" sections mention `skir.json` and `skir-src/`.
-  Neither exists in the repo: they are what `skir init` creates in a user's
-  project, not files of this one.
-- The README's absolute aeb path (above).
+- The README's size figure for the native binary (about 112 KiB) is old; it
+  is larger now.
 
 ## Before committing
 
