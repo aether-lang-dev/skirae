@@ -61,9 +61,12 @@ bin/skir version                         # the CLI, rebuilt on demand
   `tests/skir_spec.ae` runs six binding leaves unconditionally (C++, Go, Java,
   Python, Rust, TypeScript), so a missing one of those toolchains fails the
   suite. The other seven leaves are not in the suite; build them by hand.
-- skirae was last brought up to date with Aether 0.860.0 and aeb v0.339. If
-  something fails to build with a newer one, check the Aether
-  `CHANGELOG.md` for a renamed or reshaped API before assuming skirae is wrong.
+- skirae was last brought up to date with Aether 0.931.0 and aeb v0.347
+  (2026-11-20; tracking-only bump, no source change). `aeb .tests.ae` passed
+  on cachyos (aeb main, 1 of 1); the TypeScript generator and binding leaves
+  also built with the v0.347 tag installed privately. If something fails to
+  build with a newer one, check the Aether `CHANGELOG.md` for a renamed or
+  reshaped API before assuming skirae is wrong.
 
 ## Tests
 
